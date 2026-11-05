@@ -1,0 +1,3901 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TEAM QUEST - 모둠 편성 게임</title>
+  
+  <!-- 웹 폰트 (Pretendard & Gmarket Sans) -->
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+  <!-- 외부 파싱 및 유틸 CDN 라이브러리 (안전한 CDN 제공, 실패 시에도 직접 입력 가능) -->
+  <!-- SheetJS (Excel .xlsx) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- Mammoth (Word .docx) -->
+  <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
+  <!-- PDF.js (.pdf) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- Tesseract.js (이미지 OCR) -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <!-- html2canvas (결과 화면 PNG 저장) -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <!-- Canvas Confetti (축하 파티클) -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+
+  <style>
+    /* ==========================================================================
+       CSS 스타일링 및 반응형 디자인 (교실 전자칠판 / 프로젝터 16:9 최적화)
+       ========================================================================== */
+    :root {
+      --primary: #4F46E5;
+      --primary-hover: #4338CA;
+      --primary-light: #EEF2FF;
+      --secondary: #06B6D4;
+      --accent: #F59E0B;
+      --success: #10B981;
+      --danger: #EF4444;
+      --dark: #0F172A;
+      --dark-card: #1E293B;
+      --gray-50: #F8FAFC;
+      --gray-100: #F1F5F9;
+      --gray-200: #E2E8F0;
+      --gray-300: #CBD5E1;
+      --gray-600: #475569;
+      --gray-700: #334155;
+      --gray-800: #1E293B;
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 22px;
+      --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
+      --shadow-md: 0 6px 18px rgba(0,0,0,0.08);
+      --shadow-lg: 0 14px 34px rgba(0,0,0,0.14);
+      --font-main: "Pretendard", "Noto Sans KR", -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: var(--font-main);
+      background: linear-gradient(135deg, #0F172A 0%, #1E1B4B 50%, #0F172A 100%);
+      color: #F8FAFC;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      user-select: none;
+    }
+
+    /* 상단 글로벌 헤더 */
+    .app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 36px;
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      z-index: 50;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      cursor: pointer;
+    }
+
+    .brand-logo {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, #6366F1, #EC4899);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      box-shadow: 0 4px 14px rgba(99, 102, 241, 0.5);
+    }
+
+    .brand-title {
+      font-size: 26px;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+      background: linear-gradient(to right, #FFFFFF, #C7D2FE, #F472B6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-badge {
+      font-size: 13px;
+      padding: 3px 10px;
+      background: rgba(99, 102, 241, 0.25);
+      border: 1px solid rgba(165, 180, 252, 0.35);
+      color: #A5B4FC;
+      border-radius: 20px;
+      font-weight: 600;
+    }
+
+    .header-steps {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .step-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--gray-300);
+      background: rgba(255, 255, 255, 0.05);
+      transition: all 0.3s ease;
+    }
+
+    .step-indicator.active {
+      color: #FFFFFF;
+      background: linear-gradient(135deg, #4F46E5, #7C3AED);
+      box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4);
+    }
+
+    .step-indicator.done {
+      color: #34D399;
+      background: rgba(16, 185, 129, 0.15);
+    }
+
+    .step-num {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+    }
+
+    .step-indicator.active .step-num {
+      background: #FFFFFF;
+      color: var(--primary);
+    }
+
+    /* 메인 컨테이너 */
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stage {
+      display: none;
+      flex: 1;
+      width: 100%;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 0.35s ease, transform 0.35s ease;
+    }
+
+    .stage.active {
+      display: flex;
+      flex-direction: column;
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* 공통 카드 & UI 컴포넌트 */
+    .container {
+      max-width: 1280px;
+      width: 92%;
+      margin: 0 auto;
+      padding: 30px 0;
+    }
+
+    .glass-card {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      padding: 32px;
+    }
+
+    .section-title {
+      font-size: 24px;
+      font-weight: 800;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-desc {
+      font-size: 15px;
+      color: var(--gray-300);
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px 28px;
+      font-size: 16px;
+      font-weight: 700;
+      border-radius: var(--radius-md);
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      text-decoration: none;
+      font-family: inherit;
+    }
+
+    .btn:active {
+      transform: scale(0.97);
+    }
+
+    .btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none !important;
+      box-shadow: none !important;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #4F46E5, #6366F1);
+      color: white;
+      box-shadow: 0 4px 18px rgba(79, 70, 229, 0.4);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: linear-gradient(135deg, #4338CA, #4F46E5);
+      box-shadow: 0 6px 24px rgba(79, 70, 229, 0.6);
+      transform: translateY(-2px);
+    }
+
+    .btn-success {
+      background: linear-gradient(135deg, #059669, #10B981);
+      color: white;
+      box-shadow: 0 4px 18px rgba(16, 185, 129, 0.4);
+    }
+
+    .btn-success:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px rgba(16, 185, 129, 0.6);
+    }
+
+    .btn-outline {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #FFFFFF;
+    }
+
+    .btn-outline:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.16);
+      border-color: rgba(255, 255, 255, 0.35);
+    }
+
+    .btn-danger-outline {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #FCA5A5;
+    }
+
+    .btn-danger-outline:hover:not(:disabled) {
+      background: rgba(239, 68, 68, 0.2);
+    }
+
+    /* ==========================================================================
+       [1단계] 학생 명단 입력 화면 스타일
+       ========================================================================== */
+    .input-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 28px;
+      margin-bottom: 28px;
+    }
+
+    @media (max-width: 980px) {
+      .input-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* 드롭존 */
+    .upload-box {
+      border: 2px dashed rgba(165, 180, 252, 0.35);
+      border-radius: var(--radius-md);
+      padding: 30px 20px;
+      text-align: center;
+      background: rgba(15, 23, 42, 0.45);
+      cursor: pointer;
+      transition: all 0.25s ease;
+      position: relative;
+    }
+
+    .upload-box:hover, .upload-box.dragover {
+      border-color: #818CF8;
+      background: rgba(79, 70, 229, 0.12);
+      transform: translateY(-2px);
+    }
+
+    .upload-icon {
+      font-size: 42px;
+      margin-bottom: 12px;
+      display: inline-block;
+      animation: floatSlow 3s ease-in-out infinite;
+    }
+
+    .upload-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #F8FAFC;
+      margin-bottom: 6px;
+    }
+
+    .upload-subtitle {
+      font-size: 13px;
+      color: #94A3B8;
+      line-height: 1.5;
+    }
+
+    .format-pills {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 14px;
+    }
+
+    .format-pill {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      color: #CBD5E1;
+    }
+
+    .privacy-notice {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 14px;
+      font-size: 12px;
+      color: #34D399;
+      justify-content: center;
+      font-weight: 500;
+    }
+
+    /* 직접 입력 박스 */
+    .direct-input-box {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .quick-input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .text-input {
+      flex: 1;
+      padding: 13px 16px;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: var(--radius-md);
+      color: white;
+      font-size: 16px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .text-input:focus {
+      border-color: #818CF8;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+    }
+
+    .paste-area {
+      width: 100%;
+      height: 115px;
+      padding: 12px 16px;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: var(--radius-md);
+      color: white;
+      font-size: 14px;
+      font-family: inherit;
+      resize: none;
+      outline: none;
+    }
+
+    .paste-area:focus {
+      border-color: #818CF8;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+    }
+
+    /* 명단 칩 목록 */
+    .roster-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .roster-counter {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .count-badge {
+      font-size: 16px;
+      font-weight: 800;
+      padding: 6px 16px;
+      border-radius: 20px;
+      background: rgba(99, 102, 241, 0.25);
+      border: 1px solid rgba(165, 180, 252, 0.4);
+      color: #E0E7FF;
+    }
+
+    .count-badge.valid {
+      background: rgba(16, 185, 129, 0.25);
+      border-color: rgba(52, 211, 153, 0.5);
+      color: #6EE7B7;
+    }
+
+    .count-badge.invalid {
+      background: rgba(239, 68, 68, 0.25);
+      border-color: rgba(248, 113, 113, 0.5);
+      color: #FCA5A5;
+    }
+
+    .preset-btns {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-chip-action {
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      color: #CBD5E1;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-chip-action:hover {
+      background: rgba(255, 255, 255, 0.18);
+      color: white;
+    }
+
+    .chips-box {
+      min-height: 120px;
+      max-height: 220px;
+      overflow-y: auto;
+      padding: 16px;
+      background: rgba(15, 23, 42, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: var(--radius-md);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-content: flex-start;
+    }
+
+    .chips-box:empty::before {
+      content: "등록된 학생이 없습니다. 파일 업로드나 직접 입력을 통해 학생 이름을 추가해 주세요.";
+      color: #64748B;
+      font-size: 14px;
+      margin: auto;
+      text-align: center;
+      width: 100%;
+      padding: 20px 0;
+    }
+
+    .name-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      background: linear-gradient(135deg, rgba(79, 70, 229, 0.25), rgba(124, 58, 237, 0.35));
+      border: 1px solid rgba(165, 180, 252, 0.35);
+      border-radius: 20px;
+      font-size: 15px;
+      font-weight: 700;
+      color: #FFFFFF;
+      transition: all 0.2s ease;
+      animation: popIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .name-chip:hover {
+      border-color: #818CF8;
+      background: linear-gradient(135deg, rgba(79, 70, 229, 0.45), rgba(124, 58, 237, 0.55));
+      transform: translateY(-1px);
+    }
+
+    .chip-delete-btn {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      line-height: 1;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .chip-delete-btn:hover {
+      background: var(--danger);
+      color: white;
+    }
+
+    .validation-alert {
+      margin-top: 16px;
+      padding: 12px 18px;
+      border-radius: var(--radius-sm);
+      display: none;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .validation-alert.show {
+      display: flex;
+    }
+
+    .validation-alert.warning {
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      color: #FCD34D;
+    }
+
+    .validation-alert.error {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #FCA5A5;
+    }
+
+    .stage-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 28px;
+    }
+
+    /* 로딩 인디케이터 */
+    .loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(8px);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .loading-overlay.active {
+      display: flex;
+    }
+
+    .spinner {
+      width: 56px;
+      height: 56px;
+      border: 5px solid rgba(255, 255, 255, 0.15);
+      border-top-color: #6366F1;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 20px;
+    }
+
+    .loading-text {
+      font-size: 18px;
+      font-weight: 700;
+      color: #F8FAFC;
+    }
+
+    .loading-subtext {
+      font-size: 14px;
+      color: #94A3B8;
+      margin-top: 8px;
+    }
+
+    /* ==========================================================================
+       [2단계] 모둠 설정 화면 (모둠 분배 + 5대 테마 컨셉)
+       ========================================================================== */
+    .config-layout {
+      display: grid;
+      grid-template-columns: 1fr 1.6fr;
+      gap: 32px;
+    }
+
+    @media (max-width: 980px) {
+      .config-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .config-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* 모둠 방식 선택 탭 */
+    .grouping-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: rgba(15, 23, 42, 0.6);
+      padding: 5px;
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      margin-bottom: 18px;
+    }
+
+    .grouping-tab {
+      padding: 12px;
+      text-align: center;
+      font-size: 15px;
+      font-weight: 700;
+      color: #94A3B8;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .grouping-tab.active {
+      background: #4F46E5;
+      color: white;
+      box-shadow: 0 3px 12px rgba(79, 70, 229, 0.4);
+    }
+
+    .stepper-control {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(15, 23, 42, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: var(--radius-md);
+      padding: 10px 18px;
+      margin-bottom: 14px;
+    }
+
+    .stepper-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      color: white;
+      font-size: 22px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .stepper-btn:hover:not(:disabled) {
+      background: #4F46E5;
+      border-color: #818CF8;
+    }
+
+    .stepper-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .stepper-value {
+      font-size: 26px;
+      font-weight: 900;
+      color: #FFFFFF;
+      min-width: 90px;
+      text-align: center;
+    }
+
+    .preview-box {
+      background: linear-gradient(135deg, rgba(79, 70, 229, 0.15), rgba(16, 185, 129, 0.12));
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      border-radius: var(--radius-md);
+      padding: 18px;
+    }
+
+    .preview-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #A5B4FC;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .preview-main-text {
+      font-size: 20px;
+      font-weight: 800;
+      color: #FFFFFF;
+      margin-bottom: 8px;
+    }
+
+    .preview-sub-text {
+      font-size: 14px;
+      color: #CBD5E1;
+      line-height: 1.4;
+    }
+
+    /* 컨셉 선택 카드 그리드 */
+    .themes-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 16px;
+      margin-top: 10px;
+    }
+
+    .theme-card {
+      background: rgba(15, 23, 42, 0.55);
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius-md);
+      padding: 20px 16px;
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .theme-card:hover {
+      border-color: rgba(165, 180, 252, 0.6);
+      transform: translateY(-4px);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .theme-card.active {
+      border-color: #6366F1;
+      background: linear-gradient(180deg, rgba(99, 102, 241, 0.2) 0%, rgba(30, 41, 59, 0.85) 100%);
+      box-shadow: 0 0 0 2px #6366F1, 0 12px 28px rgba(99, 102, 241, 0.35);
+      transform: translateY(-4px);
+    }
+
+    .theme-badge-check {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #6366F1;
+      color: white;
+      font-size: 13px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .theme-card.active .theme-badge-check {
+      display: flex;
+    }
+
+    .theme-icon {
+      font-size: 44px;
+      margin-bottom: 12px;
+      filter: drop-shadow(0 4px 10px rgba(0,0,0,0.3));
+    }
+
+    .theme-name {
+      font-size: 18px;
+      font-weight: 800;
+      color: #FFFFFF;
+      margin-bottom: 6px;
+    }
+
+    .theme-desc {
+      font-size: 13px;
+      color: #94A3B8;
+      line-height: 1.4;
+      margin-bottom: 12px;
+    }
+
+    .theme-items-preview {
+      display: flex;
+      gap: 4px;
+      font-size: 15px;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 4px 10px;
+      border-radius: 12px;
+    }
+
+    /* ==========================================================================
+       [3단계] 게임 연출 화면 (Canvas 2D + HUD 오버레이)
+       ========================================================================== */
+    #stage-game {
+      position: relative;
+      background: #000;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      max-width: 100%;
+    }
+
+    #gameCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* 게임 상단 HUD */
+    .game-hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      padding: 16px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.85) 0%, rgba(15, 23, 42, 0) 100%);
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    .hud-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      pointer-events: auto;
+    }
+
+    .game-title-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 18px;
+      border-radius: 30px;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(8px);
+      font-size: 17px;
+      font-weight: 900;
+      color: #F8FAFC;
+    }
+
+    .hud-center {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      min-width: 320px;
+      pointer-events: auto;
+    }
+
+    .phase-badge {
+      font-size: 15px;
+      font-weight: 800;
+      padding: 6px 20px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, #6366F1, #8B5CF6);
+      color: white;
+      box-shadow: 0 4px 16px rgba(99, 102, 241, 0.5);
+      letter-spacing: 0.5px;
+      animation: pulseGlow 2s infinite;
+    }
+
+    .timeline-bar-bg {
+      width: 280px;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .timeline-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #38BDF8, #818CF8, #F43F5E);
+      border-radius: 4px;
+      transition: width 0.2s linear;
+    }
+
+    .hud-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      pointer-events: auto;
+    }
+
+    .hud-btn {
+      padding: 10px 18px;
+      font-size: 15px;
+      font-weight: 800;
+      border-radius: 24px;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: white;
+      backdrop-filter: blur(8px);
+      transition: all 0.2s;
+    }
+
+    .hud-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+      transform: scale(1.05);
+    }
+
+    .hud-btn.skip-btn {
+      background: linear-gradient(135deg, #F59E0B, #EA580C);
+      border: none;
+      box-shadow: 0 4px 14px rgba(245, 158, 11, 0.4);
+    }
+
+    /* 하단 조별 실시간 획득 현황판 */
+    .game-status-board {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 12px;
+      padding: 12px 22px;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 28px;
+      z-index: 100;
+      max-width: 95vw;
+      overflow-x: auto;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .status-group-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 18px;
+      font-size: 15px;
+      font-weight: 700;
+      color: #E2E8F0;
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      white-space: nowrap;
+    }
+
+    .status-group-pill.updated {
+      transform: scale(1.15);
+      background: rgba(99, 102, 241, 0.4);
+      border-color: #818CF8;
+      box-shadow: 0 0 16px rgba(99, 102, 241, 0.6);
+    }
+
+    @keyframes pillBounce {
+      0% { transform: scale(1); }
+      35% { transform: scale(1.3); }
+      70% { transform: scale(0.92); }
+      100% { transform: scale(1); }
+    }
+
+    .status-group-pill.bouncing {
+      animation: pillBounce 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .status-group-pill.complete {
+      background: rgba(16, 185, 129, 0.25);
+      border-color: #34D399;
+      color: #A7F3D0;
+    }
+
+    /* ==========================================================================
+       [4단계] 결과 화면 (모둠 카드 그리드 & 공유 기능)
+       ========================================================================== */
+    .result-header-box {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .result-title {
+      font-size: 32px;
+      font-weight: 900;
+      background: linear-gradient(to right, #FFFFFF, #93C5FD, #C084FC);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 10px;
+    }
+
+    .result-subtitle {
+      font-size: 17px;
+      color: #CBD5E1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .result-badge {
+      display: inline-block;
+      padding: 4px 14px;
+      background: rgba(99, 102, 241, 0.25);
+      border: 1px solid rgba(165, 180, 252, 0.35);
+      border-radius: 16px;
+      font-weight: 700;
+      color: #C7D2FE;
+    }
+
+    /* 결과 카드 컨테이너 */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 22px;
+      margin-bottom: 36px;
+    }
+
+    .team-card {
+      background: rgba(30, 41, 59, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--shadow-lg);
+      display: flex;
+      flex-direction: column;
+      animation: cardAppear 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      opacity: 0;
+      transform: translateY(24px);
+      transition: transform 0.25s, box-shadow 0.25s;
+    }
+
+    .team-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35);
+    }
+
+    .team-card-header {
+      padding: 18px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      position: relative;
+    }
+
+    .team-header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .team-icon-bubble {
+      width: 46px;
+      height: 46px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    }
+
+    .team-name-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: #FFFFFF;
+    }
+
+    .team-member-count {
+      font-size: 14px;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.15);
+      color: #FFFFFF;
+    }
+
+    .team-card-body {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex: 1;
+    }
+
+    .member-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      background: rgba(15, 23, 42, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      transition: background 0.2s;
+    }
+
+    .member-item:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .member-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .member-idx {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.15);
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #CBD5E1;
+    }
+
+    .member-name {
+      font-size: 17px;
+      font-weight: 700;
+      color: #FFFFFF;
+    }
+
+    /* 하단 액션 툴바 */
+    .result-actions-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+      padding: 20px 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* 토스트 알림 메시지 */
+    .toast-msg {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(50px);
+      background: rgba(15, 23, 42, 0.95);
+      color: white;
+      padding: 14px 26px;
+      border-radius: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      font-size: 15px;
+      font-weight: 700;
+      z-index: 9999;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .toast-msg.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ==========================================================================
+       애니메이션 Keyframes
+       ========================================================================== */
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes popIn {
+      0% { transform: scale(0.6); opacity: 0; }
+      80% { transform: scale(1.08); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    @keyframes floatSlow {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 4px 16px rgba(99, 102, 241, 0.5); }
+      50% { box-shadow: 0 4px 28px rgba(99, 102, 241, 0.85); }
+    }
+
+    @keyframes cardAppear {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ==========================================================================
+       인쇄 스타일 (@media print)
+       ========================================================================== */
+    @media print {
+      body {
+        background: #FFFFFF !important;
+        color: #000000 !important;
+      }
+      .app-header, .result-actions-toolbar, .toast-msg {
+        display: none !important;
+      }
+      .main-content {
+        overflow: visible !important;
+      }
+      .glass-card {
+        background: none !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+      }
+      .result-title {
+        color: #000000 !important;
+        -webkit-text-fill-color: initial !important;
+        font-size: 26pt !important;
+      }
+      .result-subtitle {
+        color: #555555 !important;
+      }
+      .team-card {
+        background: #FFFFFF !important;
+        border: 2px solid #333333 !important;
+        color: #000000 !important;
+        box-shadow: none !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      .team-name-title {
+        color: #000000 !important;
+      }
+      .team-member-count {
+        background: #EEEEEE !important;
+        color: #000000 !important;
+        border: 1px solid #CCCCCC !important;
+      }
+      .member-item {
+        background: #F8F9FA !important;
+        border: 1px solid #DDDDDD !important;
+      }
+      .member-name {
+        color: #000000 !important;
+      }
+      .member-idx {
+        background: #333333 !important;
+        color: #FFFFFF !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 상단 글로벌 네비게이션 헤더 -->
+  <header class="app-header">
+    <div class="brand" onclick="App.goToStage(1)">
+      <div class="brand-logo">⚔️</div>
+      <div>
+        <div class="brand-title">TEAM QUEST</div>
+      </div>
+      <div class="brand-badge">모둠 편성 게임</div>
+    </div>
+
+    <!-- 단계 인디케이터 (1 ~ 4단계) -->
+    <div class="header-steps">
+      <div class="step-indicator active" id="step-nav-1">
+        <span class="step-num">1</span>
+        <span>명단 입력</span>
+      </div>
+      <div class="step-indicator" id="step-nav-2">
+        <span class="step-num">2</span>
+        <span>모둠 설정</span>
+      </div>
+      <div class="step-indicator" id="step-nav-3">
+        <span class="step-num">3</span>
+        <span>게임 연출</span>
+      </div>
+      <div class="step-indicator" id="step-nav-4">
+        <span class="step-num">4</span>
+        <span>최종 결과</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- 메인 뷰 컨테이너 -->
+  <main class="main-content">
+
+    <!-- ======================================================================
+         [1단계] 학생 명단 입력 화면
+         ====================================================================== -->
+    <section class="stage active" id="stage-1">
+      <div class="container">
+        <div class="glass-card">
+          <h2 class="section-title">
+            <span>📝</span> 학생 명단 등록
+          </h2>
+          <p class="section-desc">
+            학생 명단 파일을 업로드하거나 직접 입력해 주세요. (최소 2명 ~ 최대 20명)
+          </p>
+
+          <!-- 상단 2열 그리드: 파일 업로드 / 직접 입력 -->
+          <div class="input-grid">
+            <!-- 파일 드롭존 -->
+            <div class="upload-box" id="drop-zone" onclick="document.getElementById('file-input').click()">
+              <input type="file" id="file-input" style="display:none" accept=".txt,.csv,.xlsx,.xls,.docx,.pdf,.png,.jpg,.jpeg" onchange="App.handleFileSelect(event)">
+              <div class="upload-icon">📂</div>
+              <div class="upload-title">파일을 드래그하거나 클릭하여 업로드</div>
+              <div class="upload-subtitle">
+                이름이 적힌 문서나 이미지에서 학생 명단을 자동으로 추출합니다.
+              </div>
+              <div class="format-pills">
+                <span class="format-pill">TXT</span>
+                <span class="format-pill">CSV</span>
+                <span class="format-pill">XLSX</span>
+                <span class="format-pill">DOCX</span>
+                <span class="format-pill">PDF</span>
+                <span class="format-pill">OCR 이미지</span>
+              </div>
+              <div class="privacy-notice">
+                <span>🛡️</span>
+                <span>업로드한 파일은 외부 서버로 전송되지 않고 브라우저에서 안전하게 처리됩니다.</span>
+              </div>
+            </div>
+
+            <!-- 직접 입력 및 붙여넣기 영역 -->
+            <div class="direct-input-box">
+              <div class="quick-input-row">
+                <input type="text" id="single-name-input" class="text-input" placeholder="학생 이름 입력 후 Enter (예: 김민수)" onkeydown="if(event.key==='Enter') App.addSingleName()">
+                <button class="btn btn-primary" onclick="App.addSingleName()">+ 추가</button>
+              </div>
+              <textarea id="paste-input" class="paste-area" placeholder="여러 명을 한꺼번에 등록하려면 여기에 명단을 붙여넣으세요.&#10;(줄바꿈, 쉼표, 공백, 번호 '1. 홍길동' 자동 인식)"></textarea>
+              <div style="display: flex; justify-content: flex-end;">
+                <button class="btn btn-outline" style="padding: 8px 18px; font-size: 14px;" onclick="App.addBulkNames()">📋 붙여넣은 명단 일괄 추가</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 등록된 명단 칩 목록 -->
+          <div class="roster-header">
+            <div class="roster-counter">
+              <span style="font-size: 16px; font-weight: 700; color: #CBD5E1;">등록된 학생 명단</span>
+              <span id="student-count-badge" class="count-badge">현재 0명</span>
+            </div>
+            <div class="preset-btns">
+              <button class="btn-chip-action" onclick="App.loadPreset(15)">15명 예시</button>
+              <button class="btn-chip-action" onclick="App.loadPreset(17)">17명 예시</button>
+              <button class="btn-chip-action" onclick="App.loadPreset(20)">20명 예시</button>
+              <button class="btn-chip-action" style="color: #FCA5A5;" onclick="App.clearStudents()">명단 초기화</button>
+            </div>
+          </div>
+
+          <div id="chips-container" class="chips-box">
+            <!-- 자바스크립트로 명단 칩 렌더링 -->
+          </div>
+
+          <!-- 검증 알림 배너 -->
+          <div id="validation-alert" class="validation-alert">
+            <span id="validation-alert-icon">⚠️</span>
+            <span id="validation-alert-msg"></span>
+          </div>
+
+          <!-- 하단 이동 버튼 -->
+          <div class="stage-footer">
+            <div style="font-size: 13px; color: #94A3B8;">
+              💡 팁: 등록된 이름을 클릭하면 수정할 수 있습니다.
+            </div>
+            <button id="btn-to-stage-2" class="btn btn-primary" onclick="App.goToStage(2)" disabled>
+              다음: 모둠 설정하기 →
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ======================================================================
+         [2단계] 모둠 설정 화면 (모둠 분배 + 5대 테마 컨셉)
+         ====================================================================== -->
+    <section class="stage" id="stage-2">
+      <div class="container">
+        <div class="glass-card">
+          <h2 class="section-title">
+            <span>⚙️</span> 모둠 방식 및 게임 컨셉 선택
+          </h2>
+          <p class="section-desc">
+            학생들을 어떤 방식으로 나눌지 정하고, 흥미진진한 탐험 테마를 골라주세요!
+          </p>
+
+          <div class="config-layout">
+            <!-- 좌측: 모둠 구성 방식 패널 -->
+            <div class="config-panel">
+              <div style="font-size: 18px; font-weight: 800; color: #FFFFFF;">1. 모둠 편성 방식</div>
+              
+              <!-- 모드 전환 탭: 몇 명씩 vs 몇 조 -->
+              <div class="grouping-tabs">
+                <div class="grouping-tab active" id="tab-mode-size" onclick="App.setGroupingMode('size')">
+                  몇 명씩 (모둠 크기)
+                </div>
+                <div class="grouping-tab" id="tab-mode-count" onclick="App.setGroupingMode('count')">
+                  몇 조 (모둠 수)
+                </div>
+              </div>
+
+              <!-- 스텝퍼 컨트롤러 -->
+              <div class="stepper-control">
+                <button class="stepper-btn" onclick="App.changeGroupValue(-1)">−</button>
+                <div>
+                  <div class="stepper-value" id="stepper-display">4명씩</div>
+                  <div style="font-size: 12px; color: #94A3B8; text-align: center;" id="stepper-label">모둠당 기준 인원</div>
+                </div>
+                <button class="stepper-btn" onclick="App.changeGroupValue(1)">+</button>
+              </div>
+
+              <!-- 실시간 분배 미리보기 카드 -->
+              <div class="preview-box">
+                <div class="preview-title">📊 실시간 분배 미리보기</div>
+                <div class="preview-main-text" id="preview-main">15명 → 3조 (5명씩)</div>
+                <div class="preview-sub-text" id="preview-detail">
+                  모든 조의 인원 차이가 최대 1명 이내가 되도록 균등하게 배정됩니다.
+                </div>
+              </div>
+
+              <div style="background: rgba(15, 23, 42, 0.4); border-radius: 12px; padding: 14px; font-size: 13px; color: #94A3B8; line-height: 1.5;">
+                ✨ <b>TEAM QUEST 공정 배정 보장</b><br>
+                결과는 Fisher-Yates 알고리즘으로 완전 무작위 배정되며, 게임 연출 전에 사전 확정되어 정확히 한 번씩만 배정됩니다.
+              </div>
+            </div>
+
+            <!-- 우측: 5대 게임 컨셉 카드 선택 -->
+            <div class="config-panel">
+              <div style="font-size: 18px; font-weight: 800; color: #FFFFFF;">2. 게임 테마 선택</div>
+
+              <div class="themes-grid" id="themes-grid">
+                <!-- 자바스크립트로 5개 테마 카드 렌더링 -->
+              </div>
+            </div>
+          </div>
+
+          <!-- 하단 버튼 -->
+          <div class="stage-footer">
+            <button class="btn btn-outline" onclick="App.goToStage(1)">
+              ← 명단 다시 확인
+            </button>
+            <button class="btn btn-success" style="font-size: 18px; padding: 16px 36px;" onclick="App.startGame()">
+              🎮 게임 시작! (TEAM QUEST) →
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ======================================================================
+         [3단계] 게임 연출 화면 (Full Canvas 60fps + HUD)
+         ====================================================================== -->
+    <section class="stage" id="stage-3">
+      <!-- 캔버스 엘리먼트 -->
+      <canvas id="gameCanvas"></canvas>
+
+      <!-- 게임 상단 HUD -->
+      <div class="game-hud">
+        <div class="hud-left">
+          <div class="game-title-pill">
+            <span id="hud-theme-icon">🎣</span>
+            <span id="hud-theme-title">낚시터 대작전</span>
+          </div>
+        </div>
+
+        <div class="hud-center">
+          <div class="phase-badge" id="hud-phase-badge">Phase 1: 입장</div>
+          <div class="timeline-bar-bg">
+            <div class="timeline-bar-fill" id="hud-progress-fill"></div>
+          </div>
+        </div>
+
+        <div class="hud-right">
+          <button class="hud-btn" id="audio-toggle-btn" onclick="SoundFX.toggleMute()">
+            <span id="audio-toggle-icon">🔇</span>
+            <span id="audio-toggle-text">소리 끔</span>
+          </button>
+          <button class="hud-btn skip-btn" onclick="App.skipGame()">
+            <span>⏩ 건너뛰기</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 게임 하단 실시간 조별 획득 현황판 -->
+      <div class="game-status-board" id="game-status-board">
+        <!-- 획득 현황 칩들 -->
+      </div>
+    </section>
+
+
+    <!-- ======================================================================
+         [4단계] 최종 결과 화면
+         ====================================================================== -->
+    <section class="stage" id="stage-4">
+      <div class="container">
+        
+        <!-- 상단 헤더 & 정보 배너 -->
+        <div class="result-header-box">
+          <h1 class="result-title">🎉 모둠 편성 완료!</h1>
+          <div class="result-subtitle">
+            <span id="result-theme-badge" class="result-badge">🎣 낚시터 모험</span>
+            <span id="result-stat-text">총 15명 / 3개 모둠 편성</span>
+          </div>
+        </div>
+
+        <!-- 조별 카드 그리드 컨테이너 -->
+        <div class="cards-grid" id="result-cards-grid">
+          <!-- 조별 카드 동적 삽입 -->
+        </div>
+
+        <!-- 하단 액션 툴바 -->
+        <div class="result-actions-toolbar">
+          <button class="btn btn-primary" onclick="App.reShuffleSameConfig()">
+            🔄 같은 설정으로 다시 섞기
+          </button>
+          <button class="btn btn-outline" onclick="App.goToStage(2)">
+            ⚙️ 설정 변경
+          </button>
+          <button class="btn btn-outline" onclick="App.goToStage(1)">
+            📝 명단 수정
+          </button>
+          <button class="btn btn-outline" onclick="App.copyResultToClipboard()">
+            📋 결과 복사
+          </button>
+          <button class="btn btn-outline" onclick="App.saveResultAsImage()">
+            🖼️ 이미지로 저장 (PNG)
+          </button>
+          <button class="btn btn-outline" onclick="window.print()">
+            🖨️ 인쇄하기
+          </button>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 글로벌 로딩 오버레이 (파일 파싱 / OCR 등) -->
+  <div class="loading-overlay" id="loading-overlay">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loading-msg">파일을 읽고 있습니다...</div>
+    <div class="loading-subtext" id="loading-submsg">잠시만 기다려 주세요</div>
+  </div>
+
+  <!-- 글로벌 토스트 알림 메시지 -->
+  <div class="toast-msg" id="toast-msg">
+    <span id="toast-icon">ℹ️</span>
+    <span id="toast-text">알림 내용</span>
+  </div>
+
+
+  <!-- ==========================================================================
+       자바스크립트 코어 로직
+       ========================================================================== -->
+  <script>
+    /**
+     * 3단계 게임 연출 타임라인 단계별 시간 상수 (밀리초 단위, 총 약 29~35초)
+     */
+    const PHASE_DURATION = {
+      ENTRANCE: 4000,      // 등장: 약 4초
+      EXPLORATION: 9000,   // 탐색: 9초
+      ACQUISITION: 10000,  // 획득: 10초
+      GATHERING: 4000,     // 집결: 약 4초
+      TRANSITION: 2000     // 결과 전환: 약 2초
+    };
+
+    const TIMELINE = {
+      ENTRANCE_END: PHASE_DURATION.ENTRANCE,
+      EXPLORE_END: PHASE_DURATION.ENTRANCE + PHASE_DURATION.EXPLORATION,
+      ACQUIRE_END: PHASE_DURATION.ENTRANCE + PHASE_DURATION.EXPLORATION + PHASE_DURATION.ACQUISITION,
+      GATHER_END: PHASE_DURATION.ENTRANCE + PHASE_DURATION.EXPLORATION + PHASE_DURATION.ACQUISITION + PHASE_DURATION.GATHERING,
+      TOTAL: PHASE_DURATION.ENTRANCE + PHASE_DURATION.EXPLORATION + PHASE_DURATION.ACQUISITION + PHASE_DURATION.GATHERING + PHASE_DURATION.TRANSITION
+    };
+
+    /**
+     * TEAM QUEST 테마 데이터 정의 (5대 컨셉, 각 최대 10개 조 완벽 지원)
+     */
+    const THEMES = [
+      {
+        id: "fishing",
+        icon: "🎣",
+        name: "낚시터",
+        desc: "출렁이는 파도와 호수에서 펼쳐지는 월척 낚시 대결!",
+        actionName: "낚시",
+        actionVerb: "낚싯대를 드리우고 입질을 기다립니다...",
+        bgType: "ocean",
+        items: [
+          { emoji: "🐟", name: "물고기조", color: "#38BDF8", lightColor: "#E0F2FE" },
+          { emoji: "🦑", name: "오징어조", color: "#F472B6", lightColor: "#FCE7F3" },
+          { emoji: "🐚", name: "조개조", color: "#FBBF24", lightColor: "#FEF3C7" },
+          { emoji: "🦀", name: "꽃게조", color: "#F87171", lightColor: "#FEE2E2" },
+          { emoji: "🪼", name: "해파리조", color: "#C084FC", lightColor: "#F3E8FF" },
+          { emoji: "🐙", name: "문어조", color: "#FB923C", lightColor: "#FFEDD5" },
+          { emoji: "🦐", name: "새우조", color: "#F43F5E", lightColor: "#FFE4E6" },
+          { emoji: "🐡", name: "복어조", color: "#34D399", lightColor: "#D1FAE5" },
+          { emoji: "🐢", name: "바다거북조", color: "#2DD4BF", lightColor: "#CCFBF1" },
+          { emoji: "🦪", name: "진주조", color: "#E2E8F0", lightColor: "#F8FAFC" }
+        ]
+      },
+      {
+        id: "farm",
+        icon: "🌾",
+        name: "풍요로운 농장",
+        desc: "햇살 가득한 밭에서 신선한 채소와 과일을 가득 수확해요!",
+        actionName: "수확",
+        actionVerb: "텃밭을 일구며 싱싱한 작물을 찾는 중...",
+        bgType: "field",
+        items: [
+          { emoji: "🥕", name: "당근조", color: "#FB923C", lightColor: "#FFEDD5" },
+          { emoji: "🥔", name: "감자조", color: "#FBBF24", lightColor: "#FEF3C7" },
+          { emoji: "🌽", name: "옥수수조", color: "#FACC15", lightColor: "#FEF9C3" },
+          { emoji: "🍅", name: "토마토조", color: "#EF4444", lightColor: "#FEE2E2" },
+          { emoji: "🥬", name: "배추조", color: "#4ADE80", lightColor: "#DCFCE7" },
+          { emoji: "🍓", name: "딸기조", color: "#F43F5E", lightColor: "#FFE4E6" },
+          { emoji: "🍎", name: "사과조", color: "#DC2626", lightColor: "#FEE2E2" },
+          { emoji: "🎃", name: "호박조", color: "#F97316", lightColor: "#FFEDD5" },
+          { emoji: "🍇", name: "포도조", color: "#A855F7", lightColor: "#F3E8FF" },
+          { emoji: "🍉", name: "수박조", color: "#10B981", lightColor: "#D1FAE5" }
+        ]
+      },
+      {
+        id: "rainbow",
+        icon: "🌈",
+        name: "무지개 보물찾기",
+        desc: "마법의 숲에 숨겨진 신비로운 오색 보석을 탐색해요!",
+        actionName: "탐색",
+        actionVerb: "신비한 숲속 덤불을 헤치며 보물을 수색 중...",
+        bgType: "forest",
+        items: [
+          { emoji: "🔴", name: "루비조", color: "#EF4444", lightColor: "#FEE2E2" },
+          { emoji: "🟠", name: "토파즈조", color: "#F97316", lightColor: "#FFEDD5" },
+          { emoji: "🟡", name: "앰버조", color: "#EAB308", lightColor: "#FEF9C3" },
+          { emoji: "🟢", name: "에메랄드조", color: "#22C55E", lightColor: "#DCFCE7" },
+          { emoji: "🔵", name: "사파이어조", color: "#3B82F6", lightColor: "#DBEAFE" },
+          { emoji: "🟣", name: "자수정조", color: "#A855F7", lightColor: "#F3E8FF" },
+          { emoji: "💖", name: "로즈쿼츠조", color: "#EC4899", lightColor: "#FCE7F3" },
+          { emoji: "💎", name: "다이아조", color: "#06B6D4", lightColor: "#CFFAFE" },
+          { emoji: "👑", name: "황금왕관조", color: "#F59E0B", lightColor: "#FEF3C7" },
+          { emoji: "🗝️", name: "마법열쇠조", color: "#8B5CF6", lightColor: "#EDE9FE" }
+        ]
+      },
+      {
+        id: "mine",
+        icon: "⛏️",
+        name: "신비한 광산",
+        desc: "깊은 동굴 속을 누비며 반짝이는 전설의 광물을 채굴해요!",
+        actionName: "채굴",
+        actionVerb: "곡괭이를 힘차게 내리치며 암석을 탐색 중...",
+        bgType: "cave",
+        items: [
+          { emoji: "🥇", name: "황금조", color: "#F59E0B", lightColor: "#FEF3C7" },
+          { emoji: "💎", name: "다이아조", color: "#38BDF8", lightColor: "#E0F2FE" },
+          { emoji: "🟥", name: "루비조", color: "#EF4444", lightColor: "#FEE2E2" },
+          { emoji: "🟩", name: "에메랄드조", color: "#10B981", lightColor: "#D1FAE5" },
+          { emoji: "🟦", name: "사파이어조", color: "#2563EB", lightColor: "#DBEAFE" },
+          { emoji: "🟪", name: "자수정조", color: "#9333EA", lightColor: "#F3E8FF" },
+          { emoji: "🟧", name: "호박석조", color: "#D97706", lightColor: "#FEF3C7" },
+          { emoji: "⚪", name: "은괴조", color: "#94A3B8", lightColor: "#F1F5F9" },
+          { emoji: "🩵", name: "청록석조", color: "#06B6D4", lightColor: "#CFFAFE" },
+          { emoji: "🖤", name: "흑요석조", color: "#64748B", lightColor: "#E2E8F0" }
+        ]
+      },
+      {
+        id: "space",
+        icon: "🚀",
+        name: "우주 탐험",
+        desc: "미지의 행성계를 유영하며 신비로운 우주 에너지를 수집해요!",
+        actionName: "탐사",
+        actionVerb: "코스믹 센서로 미지의 우주 신호를 추적 중...",
+        bgType: "space",
+        items: [
+          { emoji: "⭐", name: "황금별조", color: "#FACC15", lightColor: "#FEF9C3" },
+          { emoji: "☄️", name: "혜성조", color: "#38BDF8", lightColor: "#E0F2FE" },
+          { emoji: "🪐", name: "행성조", color: "#FB923C", lightColor: "#FFEDD5" },
+          { emoji: "🔮", name: "우주수정조", color: "#C084FC", lightColor: "#F3E8FF" },
+          { emoji: "🛸", name: "UFO조", color: "#4ADE80", lightColor: "#DCFCE7" },
+          { emoji: "🚀", name: "로켓조", color: "#F43F5E", lightColor: "#FFE4E6" },
+          { emoji: "🛰️", name: "위성조", color: "#60A5FA", lightColor: "#DBEAFE" },
+          { emoji: "🌞", name: "태양구조", color: "#EA580C", lightColor: "#FFEDD5" },
+          { emoji: "🌌", name: "성운조", color: "#A855F7", lightColor: "#F3E8FF" },
+          { emoji: "🌕", name: "월석조", color: "#CBD5E1", lightColor: "#F8FAFC" }
+        ]
+      }
+    ];
+
+    /**
+     * Web Audio API 기반 순수 프로그래밍 효과음 신디사이저 (외부 사운드 파일 의존 없음)
+     */
+    const SoundFX = {
+      ctx: null,
+      muted: true, // 기본 음소거 상태
+
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) {
+            this.ctx = new AudioContext();
+          }
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      },
+
+      toggleMute() {
+        this.init();
+        this.muted = !this.muted;
+        const icon = document.getElementById('audio-toggle-icon');
+        const text = document.getElementById('audio-toggle-text');
+        if (this.muted) {
+          icon.textContent = '🔇';
+          text.textContent = '소리 끔';
+          App.showToast('🔇 효과음이 꺼졌습니다.');
+        } else {
+          icon.textContent = '🔊';
+          text.textContent = '소리 켬';
+          this.playPop();
+          App.showToast('🔊 효과음이 켜졌습니다.');
+        }
+      },
+
+      playTone(freq, type = 'sine', duration = 0.15, gainVal = 0.1) {
+        if (this.muted || !this.ctx) return;
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+          gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + duration);
+        } catch (e) {}
+      },
+
+      playPop() {
+        if (this.muted || !this.ctx) return;
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.frequency.setValueAtTime(450, this.ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(800, this.ctx.currentTime + 0.08);
+          gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + 0.08);
+        } catch (e) {}
+      },
+
+      playDiscovery() {
+        if (this.muted || !this.ctx) return;
+        // 밝은 메이저 화음 아르페지오 (C5 -> E5 -> G5 -> C6)
+        const notes = [523.25, 659.25, 783.99, 1046.50];
+        notes.forEach((freq, idx) => {
+          setTimeout(() => {
+            this.playTone(freq, 'triangle', 0.25, 0.15);
+          }, idx * 60);
+        });
+      },
+
+      playFanfare() {
+        if (this.muted || !this.ctx) return;
+        // 승리 팡파레 시퀀스
+        const seq = [
+          { f: 523.25, d: 0.12, t: 0 },
+          { f: 523.25, d: 0.12, t: 120 },
+          { f: 523.25, d: 0.12, t: 240 },
+          { f: 659.25, d: 0.35, t: 360 },
+          { f: 587.33, d: 0.15, t: 720 },
+          { f: 659.25, d: 0.5, t: 870 },
+          { f: 783.99, d: 0.7, t: 1200 }
+        ];
+        seq.forEach(item => {
+          setTimeout(() => {
+            this.playTone(item.f, 'triangle', item.d, 0.2);
+          }, item.t);
+        });
+      }
+    };
+
+    /**
+     * 메인 애플리케이션 상태 컨트롤러
+     */
+    const App = {
+      currentStage: 1,
+      students: [], // [{ id, name, originalName }]
+      groupingMode: 'count', // 'count' (몇 조) 또는 'size' (몇 명씩)
+      targetGroupCount: 3,
+      targetGroupSize: 5,
+      selectedThemeId: 'fishing',
+      
+      // 확정된 배정 결과 데이터 (3단계 시작 전 사전 계산 및 불변성 검증 완료)
+      finalGrouping: [], // [{ id, themeItem, members: [...] }]
+
+      // 3단계 애니메이션 제어 변수
+      animId: null,
+      scenarioStartTime: 0,
+      scenarioDuration: 45000, // 총 45초 (최대 60초 이내)
+      characters: [],
+      particles: [],
+      themeBgElements: [],
+
+      init() {
+        this.loadStorage();
+        this.renderChips();
+        this.renderThemeCards();
+        this.setupDragDrop();
+        this.updateGroupingUI();
+        this.setupKeyboard();
+      },
+
+      loadStorage() {
+        try {
+          const saved = localStorage.getItem('team_quest_names');
+          if (saved) {
+            const list = JSON.parse(saved);
+            if (Array.isArray(list) && list.length > 0) {
+              this.setStudentsFromRawNames(list);
+            }
+          }
+        } catch (e) {
+          console.warn('LocalStorage load failed', e);
+        }
+      },
+
+      saveStorage() {
+        try {
+          const names = this.students.map(s => s.originalName || s.name);
+          localStorage.setItem('team_quest_names', JSON.stringify(names));
+        } catch (e) {}
+      },
+
+      setupKeyboard() {
+        window.addEventListener('keydown', (e) => {
+          if (this.currentStage === 3 && (e.code === 'Space' || e.key === 'Escape')) {
+            this.skipGame();
+          }
+        });
+      },
+
+      setupDragDrop() {
+        const dropZone = document.getElementById('drop-zone');
+        ['dragenter', 'dragover'].forEach(eventName => {
+          dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.add('dragover');
+          }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+          dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.remove('dragover');
+          }, false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+          const dt = e.dataTransfer;
+          const files = dt.files;
+          if (files && files.length > 0) {
+            this.processFile(files[0]);
+          }
+        }, false);
+      },
+
+      showLoading(msg, submsg = '잠시만 기다려 주세요') {
+        const overlay = document.getElementById('loading-overlay');
+        document.getElementById('loading-msg').textContent = msg;
+        document.getElementById('loading-submsg').textContent = submsg;
+        overlay.classList.add('active');
+      },
+
+      hideLoading() {
+        document.getElementById('loading-overlay').classList.remove('active');
+      },
+
+      showToast(text, icon = 'ℹ️') {
+        const toast = document.getElementById('toast-msg');
+        document.getElementById('toast-text').textContent = text;
+        document.getElementById('toast-icon').textContent = icon;
+        toast.classList.add('show');
+        clearTimeout(this._toastTimer);
+        this._toastTimer = setTimeout(() => {
+          toast.classList.remove('show');
+        }, 2600);
+      },
+
+      /* ======================================================================
+         [1단계 로직] 파일 파싱 및 명단 정제
+         ====================================================================== */
+      handleFileSelect(e) {
+        const file = e.target.files[0];
+        if (file) {
+          this.processFile(file);
+        }
+        e.target.value = '';
+      },
+
+      async processFile(file) {
+        const ext = file.name.split('.').pop().toLowerCase();
+        this.showLoading(`'${file.name}' 분석 중...`, '텍스트 및 학생 이름을 추출하고 있습니다.');
+
+        try {
+          let extractedText = '';
+
+          if (ext === 'txt' || ext === 'csv') {
+            extractedText = await this.readTextFile(file);
+          } else if (ext === 'xlsx' || ext === 'xls') {
+            extractedText = await this.readExcelFile(file);
+          } else if (ext === 'docx') {
+            extractedText = await this.readDocxFile(file);
+          } else if (ext === 'pdf') {
+            extractedText = await this.readPdfFile(file);
+          } else if (['png', 'jpg', 'jpeg'].includes(ext)) {
+            extractedText = await this.readImageOCR(file);
+          } else {
+            this.hideLoading();
+            alert(`지원하지 않는 파일 형식(.${ext})입니다. txt, csv, xlsx, docx, pdf, 이미지 파일을 이용해 주세요.`);
+            return;
+          }
+
+          this.hideLoading();
+          const parsedNames = this.cleanAndParseNames(extractedText);
+          if (parsedNames.length === 0) {
+            alert('파일에서 학생 이름을 찾지 못했어요. 직접 입력해 주세요.');
+            return;
+          }
+
+          this.addNamesList(parsedNames);
+          this.showToast(`${parsedNames.length}명의 학생을 성공적으로 추출했습니다!`, '🎉');
+        } catch (err) {
+          console.error(err);
+          this.hideLoading();
+          alert(`파일 처리 중 오류가 발생했습니다: ${err.message || '라이브러리 로드 실패'}\n직접 입력란을 이용해 이름을 입력해 주세요.`);
+        }
+      },
+
+      readTextFile(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result);
+          reader.onerror = reject;
+          reader.readAsText(file, 'utf-8');
+        });
+      },
+
+      readExcelFile(file) {
+        return new Promise((resolve, reject) => {
+          if (typeof XLSX === 'undefined') {
+            return reject(new Error('SheetJS 라이브러리를 불러오지 못했습니다.'));
+          }
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            try {
+              const data = new Uint8Array(e.target.result);
+              const workbook = XLSX.read(data, { type: 'array' });
+              const firstSheetName = workbook.SheetNames[0];
+              const worksheet = workbook.Sheets[firstSheetName];
+              const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+              const text = json.flat().filter(v => v !== undefined && v !== null).join('\n');
+              resolve(text);
+            } catch (err) {
+              reject(err);
+            }
+          };
+          reader.onerror = reject;
+          reader.readAsArrayBuffer(file);
+        });
+      },
+
+      readDocxFile(file) {
+        return new Promise((resolve, reject) => {
+          if (typeof mammoth === 'undefined') {
+            return reject(new Error('Mammoth 라이브러리를 불러오지 못했습니다.'));
+          }
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            mammoth.extractRawText({ arrayBuffer: e.target.result })
+              .then(result => resolve(result.value))
+              .catch(reject);
+          };
+          reader.onerror = reject;
+          reader.readAsArrayBuffer(file);
+        });
+      },
+
+      async readPdfFile(file) {
+        if (typeof pdfjsLib === 'undefined') {
+          throw new Error('PDF.js 라이브러리를 불러오지 못했습니다.');
+        }
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let fullText = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          const strings = content.items.map(item => item.str);
+          fullText += strings.join('\n') + '\n';
+        }
+        return fullText;
+      },
+
+      async readImageOCR(file) {
+        if (typeof Tesseract === 'undefined') {
+          throw new Error('Tesseract.js OCR 라이브러리를 불러오지 못했습니다.');
+        }
+        this.showLoading('이미지 글자 인식(OCR) 중...', '한국어 문자를 해독하고 있습니다.');
+        const worker = await Tesseract.createWorker('kor+eng');
+        const ret = await worker.recognize(file);
+        await worker.terminate();
+        return ret.data.text;
+      },
+
+      /**
+       * 추출된 원본 문자열을 규칙에 따라 깨끗하게 정제하고 이름 목록 반환
+       */
+      cleanAndParseNames(rawText) {
+        if (!rawText || typeof rawText !== 'string') return [];
+
+        // 1. 줄바꿈, 쉼표, 탭, 세미콜론 기준으로 1차 분리
+        const tokens = rawText.split(/[\r\n,;\t]+/);
+        const result = [];
+
+        for (let token of tokens) {
+          let trimmed = token.trim();
+          if (!trimmed) continue;
+
+          // 공백으로 여러 이름이 적힌 경우(예: "김민수 이영희 박지성") 추가 분리 지원
+          const spaceTokens = trimmed.split(/\s+/);
+          for (let st of spaceTokens) {
+            let name = st.trim();
+            // 번호 서식 제거: "1.", "1)", "[1]", "(1)", "①", "- ", "* ", "• " 등
+            name = name.replace(/^[\d①-⑳]+[\.\)\:\-\]]*\s*/, '');
+            name = name.replace(/^[\-\*\•\~\#\@\$\%\^\&\*]\s*/, '');
+            name = name.replace(/[\.\,\(\)\[\]\{\}\<\>\"\'\`]/g, '').trim();
+
+            // 유효성: 한 글자 이상, 단순 숫자/특수문자 단독 제외
+            if (name.length >= 1 && !/^\d+$/.test(name) && !/^[\_\-\.\+]+$/.test(name)) {
+              // 엑셀 헤더 흔한 단어 제외 (이름, 성명, 번호, 학생, No, Name 등)
+              if (!['이름', '성명', '학생명', '학생이름', 'name', 'no', '번호', '순번'].includes(name.toLowerCase())) {
+                result.push(name);
+              }
+            }
+          }
+        }
+        return result;
+      },
+
+      addSingleName() {
+        const input = document.getElementById('single-name-input');
+        const val = input.value.trim();
+        if (!val) return;
+        this.addNamesList([val]);
+        input.value = '';
+        input.focus();
+        SoundFX.playPop();
+      },
+
+      addBulkNames() {
+        const area = document.getElementById('paste-input');
+        const val = area.value.trim();
+        if (!val) return;
+        const parsed = this.cleanAndParseNames(val);
+        if (parsed.length > 0) {
+          this.addNamesList(parsed);
+          area.value = '';
+          SoundFX.playPop();
+          this.showToast(`${parsed.length}명의 학생을 추가했습니다!`, '✨');
+        } else {
+          this.showToast('유효한 학생 이름을 찾을 수 없습니다.', '⚠️');
+        }
+      },
+
+      addNamesList(nameStrings) {
+        const currentRaw = this.students.map(s => s.originalName || s.name);
+        const combined = [...currentRaw, ...nameStrings];
+        this.setStudentsFromRawNames(combined);
+      },
+
+      /**
+       * 동명이인 자동 구분 "(1)", "(2)" 처리 및 학생 객체 구성
+       */
+      setStudentsFromRawNames(nameArray) {
+        // 빈 문자열 및 공백 정리
+        const cleaned = nameArray.map(n => n.trim()).filter(n => n.length > 0);
+
+        // 동명이인 카운팅
+        const nameCountMap = {};
+        cleaned.forEach(name => {
+          nameCountMap[name] = (nameCountMap[name] || 0) + 1;
+        });
+
+        const seenMap = {};
+        this.students = cleaned.map((origName, idx) => {
+          seenMap[origName] = (seenMap[origName] || 0) + 1;
+          let displayName = origName;
+          if (nameCountMap[origName] > 1) {
+            displayName = `${origName}(${seenMap[origName]})`;
+          }
+          return {
+            id: `student_${idx}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+            name: displayName,
+            originalName: origName
+          };
+        });
+
+        this.saveStorage();
+        this.renderChips();
+        this.validateRoster();
+        this.updateGroupingUI();
+      },
+
+      removeStudent(index) {
+        SoundFX.playPop();
+        const currentRaw = this.students.map(s => s.originalName || s.name);
+        currentRaw.splice(index, 1);
+        this.setStudentsFromRawNames(currentRaw);
+      },
+
+      clearStudents() {
+        if (this.students.length === 0) return;
+        if (confirm('등록된 학생 명단을 모두 비우시겠습니까?')) {
+          SoundFX.playPop();
+          this.students = [];
+          localStorage.removeItem('team_quest_names');
+          this.renderChips();
+          this.validateRoster();
+          this.updateGroupingUI();
+          this.showToast('명단을 초기화했습니다.');
+        }
+      },
+
+      loadPreset(count) {
+        SoundFX.playPop();
+        const samplePool = [
+          "김민수", "이영희", "박지성", "손흥민", "김연아",
+          "류현진", "정우성", "이지은", "강호동", "유재석",
+          "차은우", "안유진", "장원영", "송중기", "한효주",
+          "이정재", "황정민", "배수지", "박보검", "김태리"
+        ];
+        const selected = samplePool.slice(0, count);
+        this.setStudentsFromRawNames(selected);
+        this.showToast(`${count}명 예시 명단을 불러왔습니다.`, '✨');
+      },
+
+      renderChips() {
+        const container = document.getElementById('chips-container');
+        container.innerHTML = '';
+
+        this.students.forEach((student, idx) => {
+          const chip = document.createElement('div');
+          chip.className = 'name-chip';
+          chip.innerHTML = `
+            <span>${student.name}</span>
+            <span class="chip-delete-btn" title="삭제" onclick="event.stopPropagation(); App.removeStudent(${idx})">×</span>
+          `;
+          chip.onclick = () => this.editStudentName(idx);
+          container.appendChild(chip);
+        });
+
+        // 카운터 뱃지 업데이트
+        const count = this.students.length;
+        const badge = document.getElementById('student-count-badge');
+        badge.textContent = `현재 ${count}명`;
+        badge.className = 'count-badge ' + (count >= 2 && count <= 20 ? 'valid' : 'invalid');
+      },
+
+      editStudentName(idx) {
+        const current = this.students[idx].originalName || this.students[idx].name;
+        const newName = prompt('학생 이름을 수정해 주세요:', current);
+        if (newName !== null && newName.trim().length > 0) {
+          const raw = this.students.map(s => s.originalName || s.name);
+          raw[idx] = newName.trim();
+          this.setStudentsFromRawNames(raw);
+          SoundFX.playPop();
+        }
+      },
+
+      validateRoster() {
+        const count = this.students.length;
+        const alertBox = document.getElementById('validation-alert');
+        const alertMsg = document.getElementById('validation-alert-msg');
+        const btnNext = document.getElementById('btn-to-stage-2');
+
+        if (count < 2) {
+          alertBox.className = 'validation-alert warning show';
+          alertMsg.textContent = '모둠을 구성하려면 최소 2명 이상의 학생이 필요합니다.';
+          btnNext.disabled = true;
+          return false;
+        } else if (count > 20) {
+          alertBox.className = 'validation-alert error show';
+          alertMsg.textContent = `현재 ${count}명입니다. TEAM QUEST는 원활한 화면 구성을 위해 최대 20명까지 지원합니다. 초과 인원을 삭제해 주세요.`;
+          btnNext.disabled = true;
+          return false;
+        } else {
+          alertBox.className = 'validation-alert';
+          alertBox.classList.remove('show');
+          btnNext.disabled = false;
+          return true;
+        }
+      },
+
+      /* ======================================================================
+         [2단계 로직] 모둠 방식 & 5대 테마 컨셉
+         ====================================================================== */
+      setGroupingMode(mode) {
+        SoundFX.playPop();
+        this.groupingMode = mode;
+        document.getElementById('tab-mode-size').classList.toggle('active', mode === 'size');
+        document.getElementById('tab-mode-count').classList.toggle('active', mode === 'count');
+        this.updateGroupingUI();
+      },
+
+      changeGroupValue(delta) {
+        SoundFX.playPop();
+        const N = this.students.length;
+        if (N < 2) return;
+
+        if (this.groupingMode === 'count') {
+          // 조 수: 최소 2, 최대 min(N, 10)
+          const minGroups = 2;
+          const maxGroups = Math.min(N, 10);
+          this.targetGroupCount = Math.max(minGroups, Math.min(maxGroups, this.targetGroupCount + delta));
+        } else {
+          // 몇 명씩: 최소 1, 최대 Math.floor(N / 2)
+          const minSize = 1;
+          const maxSize = Math.max(1, Math.floor(N / 2));
+          this.targetGroupSize = Math.max(minSize, Math.min(maxSize, this.targetGroupSize + delta));
+        }
+        this.updateGroupingUI();
+      },
+
+      updateGroupingUI() {
+        const N = this.students.length;
+        const stepperDisplay = document.getElementById('stepper-display');
+        const stepperLabel = document.getElementById('stepper-label');
+        const previewMain = document.getElementById('preview-main');
+        const previewDetail = document.getElementById('preview-detail');
+
+        if (N < 2) {
+          previewMain.textContent = "학생을 2명 이상 등록해 주세요.";
+          previewDetail.textContent = "";
+          return;
+        }
+
+        let effectiveK = 2; // 조 수
+
+        if (this.groupingMode === 'count') {
+          const maxGroups = Math.min(N, 10);
+          if (this.targetGroupCount > maxGroups) this.targetGroupCount = maxGroups;
+          if (this.targetGroupCount < 2) this.targetGroupCount = 2;
+
+          effectiveK = this.targetGroupCount;
+          stepperDisplay.textContent = `${effectiveK}개 조`;
+          stepperLabel.textContent = `모둠 수 (2 ~ ${maxGroups}조)`;
+        } else {
+          const maxSize = Math.max(1, Math.floor(N / 2));
+          if (this.targetGroupSize > maxSize) this.targetGroupSize = maxSize;
+          if (this.targetGroupSize < 1) this.targetGroupSize = 1;
+
+          stepperDisplay.textContent = `${this.targetGroupSize}명씩`;
+          stepperLabel.textContent = `모둠당 기준 인원 (1 ~ ${maxSize}명)`;
+
+          // N명씩 모드일 때 자동 조 수 계산
+          effectiveK = Math.max(2, Math.min(Math.min(N, 10), Math.round(N / this.targetGroupSize)));
+        }
+
+        // 균등 분배 계획 계산
+        const distribution = this.calculateDistribution(N, effectiveK);
+        const distStr = distribution.join('명, ') + '명';
+        const isAllEqual = distribution[0] === distribution[distribution.length - 1];
+
+        previewMain.textContent = `${N}명 → ${effectiveK}개 조 (${isAllEqual ? `${distribution[0]}명씩` : distStr})`;
+        previewDetail.textContent = `모든 조의 인원 차이가 최대 1명 이내가 되도록 균등하게 배정됩니다. (최대 인원 차이: ${distribution[0] - distribution[distribution.length - 1]}명)`;
+      },
+
+      /**
+       * 불변 조건: N명을 K개 조로 나눌 때 최대 차이가 1 이하가 되도록 분배
+       */
+      calculateDistribution(N, K) {
+        const base = Math.floor(N / K);
+        const rem = N % K;
+        const result = [];
+        for (let i = 0; i < K; i++) {
+          result.push(i < rem ? base + 1 : base);
+        }
+        return result;
+      },
+
+      renderThemeCards() {
+        const container = document.getElementById('themes-grid');
+        container.innerHTML = '';
+
+        THEMES.forEach(theme => {
+          const card = document.createElement('div');
+          card.className = 'theme-card' + (theme.id === this.selectedThemeId ? ' active' : '');
+          card.onclick = () => this.selectTheme(theme.id);
+
+          const itemsEmojis = theme.items.slice(0, 5).map(it => it.emoji).join(' ');
+
+          card.innerHTML = `
+            <div class="theme-badge-check">✓</div>
+            <div class="theme-icon">${theme.icon}</div>
+            <div class="theme-name">${theme.name}</div>
+            <div class="theme-desc">${theme.desc}</div>
+            <div class="theme-items-preview">
+              <span>${itemsEmojis}</span>
+            </div>
+          `;
+          container.appendChild(card);
+        });
+      },
+
+      selectTheme(themeId) {
+        SoundFX.playPop();
+        this.selectedThemeId = themeId;
+        this.renderThemeCards();
+      },
+
+      /* ======================================================================
+         [핵심 배정 로직 & 불변 조건 검증] (Fisher-Yates 셔플 + 엄격한 Assert)
+         ====================================================================== */
+      createStrictGrouping() {
+        const N = this.students.length;
+        if (N < 2 || N > 20) {
+          throw new Error(`학생 수(${N})가 유효 범위(2~20명)를 벗어났습니다.`);
+        }
+
+        let K = 2;
+        if (this.groupingMode === 'count') {
+          K = Math.max(2, Math.min(Math.min(N, 10), this.targetGroupCount));
+        } else {
+          K = Math.max(2, Math.min(Math.min(N, 10), Math.round(N / this.targetGroupSize)));
+        }
+
+        const currentTheme = THEMES.find(t => t.id === this.selectedThemeId) || THEMES[0];
+        const distPlan = this.calculateDistribution(N, K);
+
+        // 1. 학생 목록 복사 후 Fisher-Yates 셔플로 완벽 무작위 섞기
+        const shuffledStudents = [...this.students];
+        for (let i = shuffledStudents.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffledStudents[i], shuffledStudents[j]] = [shuffledStudents[j], shuffledStudents[i]];
+        }
+
+        // 2. 분배 계획에 따라 순차 슬라이싱하여 조 생성
+        const groups = [];
+        let cursor = 0;
+        for (let i = 0; i < K; i++) {
+          const count = distPlan[i];
+          const members = shuffledStudents.slice(cursor, cursor + count);
+          cursor += count;
+
+          const themeItem = currentTheme.items[i % currentTheme.items.length];
+          groups.push({
+            id: `group_${i}`,
+            index: i,
+            name: `${themeItem.emoji} ${themeItem.name}`,
+            themeItem: themeItem,
+            members: members
+          });
+        }
+
+        // 3. [매우 중요] 불변 조건(Invariants) 엄격 검증
+        this.assertGroupingInvariants(this.students, groups);
+
+        return groups;
+      },
+
+      assertGroupingInvariants(allStudents, groups) {
+        // 불변 1: 모든 조의 조원 수의 합은 전체 학생 수와 정확히 같아야 함
+        const totalAssigned = groups.reduce((sum, g) => sum + g.members.length, 0);
+        if (totalAssigned !== allStudents.length) {
+          throw new Error(`[Assertion Fail] 배정된 인원(${totalAssigned}) != 전체 학생수(${allStudents.length})`);
+        }
+
+        // 불변 2: 모든 학생은 정확히 한 조에만 속해야 함 (중복 및 누락 금지)
+        const assignedIds = new Set();
+        for (const g of groups) {
+          for (const m of g.members) {
+            if (assignedIds.has(m.id)) {
+              throw new Error(`[Assertion Fail] 중복 배정된 학생 발견: ${m.name}`);
+            }
+            assignedIds.add(m.id);
+          }
+        }
+        if (assignedIds.size !== allStudents.length) {
+          throw new Error(`[Assertion Fail] 누락된 학생 존재: 배정=${assignedIds.size}, 전체=${allStudents.length}`);
+        }
+
+        // 불변 3: 조 간 인원 차이는 최대 1명 이하여야 함
+        const sizes = groups.map(g => g.members.length);
+        const minSize = Math.min(...sizes);
+        const maxSize = Math.max(...sizes);
+        if (maxSize - minSize > 1) {
+          throw new Error(`[Assertion Fail] 조 간 인원 차이가 1명을 초과함 (최대:${maxSize}, 최소:${minSize})`);
+        }
+
+        console.log(`[TEAM QUEST 배정 검증 통과] ${allStudents.length}명 -> ${groups.length}조 완벽 분배 완료`);
+        return true;
+      },
+
+      /* ======================================================================
+         [3단계 로직] 게임 연출 화면 & Canvas 60fps 애니메이션 엔진
+         ====================================================================== */
+      startGame() {
+        SoundFX.init();
+        try {
+          // 게임 시작 전 결과 100% 사전 확정
+          this.finalGrouping = this.createStrictGrouping();
+        } catch (err) {
+          alert('모둠 배정 중 오류가 발생했습니다: ' + err.message);
+          return;
+        }
+
+        this.goToStage(3);
+        this.setupGameCanvas();
+      },
+
+      skipGame() {
+        if (this.currentStage !== 3) return;
+        if (this.animId) {
+          cancelAnimationFrame(this.animId);
+          this.animId = null;
+        }
+        SoundFX.playFanfare();
+        this.goToStage(4);
+        this.renderResultScreen();
+      },
+
+      setupGameCanvas() {
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const currentTheme = THEMES.find(t => t.id === this.selectedThemeId) || THEMES[0];
+
+        // HUD 타이틀 갱신
+        document.getElementById('hud-theme-icon').textContent = currentTheme.icon;
+        document.getElementById('hud-theme-title').textContent = currentTheme.name;
+
+        // 하단 조별 현황판 초기화
+        const statusBoard = document.getElementById('game-status-board');
+        statusBoard.innerHTML = '';
+        this.finalGrouping.forEach(g => {
+          const pill = document.createElement('div');
+          pill.className = 'status-group-pill';
+          pill.id = `status-pill-${g.id}`;
+          pill.innerHTML = `
+            <span>${g.themeItem.emoji}</span>
+            <span>${g.themeItem.name.replace('조', '')}</span>
+            <span id="status-count-${g.id}" style="font-weight:900; color:${g.themeItem.color}">0/${g.members.length}</span>
+          `;
+          statusBoard.appendChild(pill);
+        });
+
+        // 캔버스 해상도 리사이즈
+        const resize = () => {
+          canvas.width = window.innerWidth;
+          canvas.height = window.innerHeight;
+          this.recalculateGroupBases(canvas.width, canvas.height);
+        };
+        resize();
+        window.addEventListener('resize', resize);
+
+        // 1. [유일한 기준: 확정된 배정 결과] student -> group 매핑
+        const studentToGroupMap = new Map();
+        this.finalGrouping.forEach(g => {
+          g.members.forEach(m => {
+            studentToGroupMap.set(m.id, g);
+          });
+        });
+
+        const W = canvas.width;
+        const H = canvas.height;
+        const totalStudents = this.students.length;
+
+        // 2. 조별 고정 집결 구역(Bases) 및 구역 내 비겹침 고정 슬롯 계산
+        this.recalculateGroupBases(W, H);
+
+        // 3. 획득 시차 스케줄링 (획득 단계: 13s ~ 23s, 총 10초)
+        // 0.3s ~ 0.8s 간격으로 시차 부여하여 한 명씩 순차 획득 연출
+        const acquireStart = TIMELINE.EXPLORE_END; // 13,000ms
+        const acquireDuration = PHASE_DURATION.ACQUISITION; // 10,000ms
+        const interval = totalStudents > 1 
+          ? Math.max(320, Math.min(800, (acquireDuration - 1200) / (totalStudents - 1)))
+          : 500;
+
+        const acquireOrder = [...Array(totalStudents).keys()];
+        // 순서는 무작위 셔플로 흥미 유발
+        for (let i = acquireOrder.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [acquireOrder[i], acquireOrder[j]] = [acquireOrder[j], acquireOrder[i]];
+        }
+
+        // 4. 탐색 시 근처로 이동할 수 있는 배경 환경 아이템(Ambient Collectibles) 생성
+        this.ambientCollectibles = [];
+        for (let i = 0; i < 10; i++) {
+          this.ambientCollectibles.push({
+            x: W * 0.12 + Math.random() * (W * 0.76),
+            y: H * 0.28 + Math.random() * (H * 0.36),
+            emoji: currentTheme.items[i % currentTheme.items.length].emoji,
+            phaseOffset: Math.random() * Math.PI * 2,
+            scale: 0.8 + Math.random() * 0.4
+          });
+        }
+
+        // 5. 캐릭터 데이터 생성 (모든 캐릭터는 흰색 3D 구체 아바타)
+        this.characters = [];
+        this.students.forEach((s, idx) => {
+          const group = studentToGroupMap.get(s.id);
+          const orderIdx = acquireOrder.indexOf(idx);
+          const acquireTime = acquireStart + 400 + orderIdx * interval;
+
+          // 확정된 조 구역 및 조원 슬롯 좌표 연결
+          const base = this.groupBases.find(b => b.groupId === group.id);
+          const slot = base.slots.find(sl => sl.studentId === s.id) || { x: base.x, y: base.y };
+
+          this.characters.push({
+            id: s.id,
+            name: s.name,
+            group: group,
+            base: base,
+            // 스폰 위치: 중앙 부근에서 부드럽게 등장
+            x: W / 2 + (Math.random() - 0.5) * Math.min(W * 0.5, 300),
+            y: H * 0.45 + (Math.random() - 0.5) * 120,
+            vx: (Math.random() - 0.5) * 2.2,
+            vy: (Math.random() - 0.5) * 2.2,
+            // 집결 목표 좌표 (고정 구역 내 지정 슬롯)
+            targetX: slot.x,
+            targetY: slot.y,
+            // 상태 플래그 및 애니메이션
+            scale: 0,
+            animPhase: Math.random() * Math.PI * 2,
+            bounceY: 0,
+            acquired: false,
+            acquireScheduledTime: acquireTime,
+            acquiredAt: 0,
+            popupProgress: 0,
+            floatText: null,
+            cheering: false,
+            targetAmbientIdx: Math.floor(Math.random() * this.ambientCollectibles.length)
+          });
+        });
+
+        this.particles = [];
+        this.scenarioStartTime = performance.now();
+        this.lastFrameTime = performance.now();
+        this.hasVerifiedGathering = false;
+
+        // 메인 렌더 루프 가동
+        if (this.animId) cancelAnimationFrame(this.animId);
+        const loop = (currentTime) => {
+          this.renderGameFrame(ctx, canvas, currentTime);
+          if (this.currentStage === 3) {
+            this.animId = requestAnimationFrame(loop);
+          }
+        };
+        this.animId = requestAnimationFrame(loop);
+      },
+
+      /**
+       * 조별 집결 구역(Bases) 및 구역 내 캐릭터별 비겹침 슬롯 계산
+       * 화면 하단/측면에 균등 간격 배치 및 이름표 비가림 격자/호형 정렬
+       */
+      recalculateGroupBases(W, H) {
+        const numGroups = this.finalGrouping.length;
+        this.groupBases = [];
+
+        if (numGroups <= 5) {
+          // 5조 이하: 화면 하단 1개 행으로 여유롭게 가로 분배
+          const baseY = H * 0.74;
+          const zoneWidth = W / numGroups;
+
+          this.finalGrouping.forEach((g, gIdx) => {
+            const centerX = zoneWidth * (gIdx + 0.5);
+            const slots = this.calculateBaseSlots(centerX, baseY, g.members, zoneWidth);
+
+            this.groupBases.push({
+              groupId: g.id,
+              groupIndex: gIdx,
+              x: centerX,
+              y: baseY,
+              radiusX: Math.min(zoneWidth * 0.42, 110),
+              radiusY: 42,
+              color: g.themeItem.color,
+              emoji: g.themeItem.emoji,
+              name: g.themeItem.name,
+              members: g.members,
+              slots: slots
+            });
+          });
+        } else {
+          // 6조 이상: 2열 스태거드(지그재그) 분배로 넉넉한 공간 확보
+          const row1Count = Math.ceil(numGroups / 2);
+          const row2Count = numGroups - row1Count;
+
+          const row1W = W / row1Count;
+          const row2W = W / row2Count;
+
+          this.finalGrouping.forEach((g, gIdx) => {
+            let centerX, centerY, zoneW;
+            if (gIdx < row1Count) {
+              centerX = row1W * (gIdx + 0.5);
+              centerY = H * 0.65;
+              zoneW = row1W;
+            } else {
+              const idx2 = gIdx - row1Count;
+              centerX = row2W * (idx2 + 0.5);
+              centerY = H * 0.83;
+              zoneW = row2W;
+            }
+
+            const slots = this.calculateBaseSlots(centerX, centerY, g.members, zoneW);
+            this.groupBases.push({
+              groupId: g.id,
+              groupIndex: gIdx,
+              x: centerX,
+              y: centerY,
+              radiusX: Math.min(zoneW * 0.44, 95),
+              radiusY: 38,
+              color: g.themeItem.color,
+              emoji: g.themeItem.emoji,
+              name: g.themeItem.name,
+              members: g.members,
+              slots: slots
+            });
+          });
+        }
+
+        // 기존 캐릭터가 있다면 슬롯 좌표 재연결
+        if (this.characters && this.characters.length > 0) {
+          this.characters.forEach(char => {
+            const base = this.groupBases.find(b => b.groupId === char.group.id);
+            if (base) {
+              const slot = base.slots.find(sl => sl.studentId === char.id);
+              if (slot) {
+                char.targetX = slot.x;
+                char.targetY = slot.y;
+              }
+            }
+          });
+        }
+      },
+
+      /**
+       * 집결 구역 내 개별 학생 고정 슬롯 좌표 (가로/격자 분산으로 이름표 겹침 방지)
+       */
+      calculateBaseSlots(baseX, baseY, members, zoneWidth) {
+        const M = members.length;
+        const slots = [];
+        const spacingX = Math.min(56, Math.max(46, (zoneWidth * 0.8) / Math.max(1, M)));
+
+        if (M <= 3) {
+          // 3명 이하: 1줄 가로 정렬
+          members.forEach((m, mIdx) => {
+            slots.push({
+              studentId: m.id,
+              x: baseX + (mIdx - (M - 1) / 2) * spacingX,
+              y: baseY + 14
+            });
+          });
+        } else if (M <= 6) {
+          // 4~6명: 뒷줄 2~3명, 앞줄 2~3명 2열 배치
+          const backCount = Math.floor(M / 2);
+          const frontCount = M - backCount;
+
+          members.forEach((m, mIdx) => {
+            if (mIdx < backCount) {
+              slots.push({
+                studentId: m.id,
+                x: baseX + (mIdx - (backCount - 1) / 2) * 54,
+                y: baseY - 18
+              });
+            } else {
+              const fIdx = mIdx - backCount;
+              slots.push({
+                studentId: m.id,
+                x: baseX + (fIdx - (frontCount - 1) / 2) * 52,
+                y: baseY + 26
+              });
+            }
+          });
+        } else {
+          // 7명 이상
+          members.forEach((m, mIdx) => {
+            const row = Math.floor(mIdx / 3);
+            const col = mIdx % 3;
+            slots.push({
+              studentId: m.id,
+              x: baseX + (col - 1) * 50,
+              y: baseY - 20 + row * 38
+            });
+          });
+        }
+        return slots;
+      },
+
+      /**
+       * 집결 완료 검증: 실제 구역별 인원수와 확정된 인원수 대조 및 위치 보정
+       */
+      verifyGatheringPositions() {
+        if (this.hasVerifiedGathering) return;
+        this.hasVerifiedGathering = true;
+
+        let hasDiscrepancy = false;
+        this.finalGrouping.forEach(g => {
+          const expectedMembers = g.members;
+          const charsInGroup = this.characters.filter(c => c.group.id === g.id);
+
+          if (charsInGroup.length !== expectedMembers.length) {
+            console.error(`[집결 오류] ${g.name}: 기대 인원(${expectedMembers.length}명) != 실제 인원(${charsInGroup.length}명)`);
+            hasDiscrepancy = true;
+          }
+
+          // 전원 지정 슬롯 좌표로 정확히 정렬 보정
+          charsInGroup.forEach(c => {
+            c.x = c.targetX;
+            c.y = c.targetY;
+            c.cheering = true;
+          });
+        });
+
+        if (!hasDiscrepancy) {
+          console.log("[집결 검증 완료] 모든 캐릭터가 획득한 물건별 지정 구역에 100% 일치하게 정렬되었습니다.");
+        }
+      },
+
+      renderGameFrame(ctx, canvas, currentTime) {
+        const elapsed = currentTime - this.scenarioStartTime;
+        const dt = Math.min((currentTime - this.lastFrameTime) / 1000, 0.1);
+        this.lastFrameTime = currentTime;
+
+        const W = canvas.width;
+        const H = canvas.height;
+        const currentTheme = THEMES.find(t => t.id === this.selectedThemeId) || THEMES[0];
+
+        // 진행률 바 (총 타임라인: TIMELINE.TOTAL = 29초)
+        const progress = Math.min(1, elapsed / TIMELINE.TOTAL);
+        document.getElementById('hud-progress-fill').style.width = `${progress * 100}%`;
+
+        // 페이즈 판정
+        let phase = 1;
+        const phaseBadge = document.getElementById('hud-phase-badge');
+
+        if (elapsed < TIMELINE.ENTRANCE_END) {
+          phase = 1;
+          phaseBadge.textContent = 'Phase 1: 등장 (TEAM QUEST 시작)';
+        } else if (elapsed < TIMELINE.EXPLORE_END) {
+          phase = 2;
+          phaseBadge.textContent = `Phase 2: ${currentTheme.actionName} 탐색 중...`;
+        } else if (elapsed < TIMELINE.ACQUIRE_END) {
+          phase = 3;
+          phaseBadge.textContent = 'Phase 3: 아이템 획득! 모둠 확정';
+        } else if (elapsed < TIMELINE.GATHER_END) {
+          phase = 4;
+          phaseBadge.textContent = 'Phase 4: 획득한 아이템 구역으로 집결!';
+        } else {
+          phase = 5;
+          phaseBadge.textContent = '모둠 편성 완료! 결과로 이동합니다';
+          this.verifyGatheringPositions();
+          if (elapsed >= TIMELINE.TOTAL) {
+            this.skipGame();
+            return;
+          }
+        }
+
+        // 1. 다채롭고 게임다운 3~4겹 레이어 배경 렌더링
+        this.drawThemeBackground(ctx, W, H, currentTheme, elapsed);
+
+        // 2. 조별 고정 집결 구역(Bases) 렌더링 (Phase 3부터 점진 페이드인)
+        if (elapsed > TIMELINE.EXPLORE_END - 2000) {
+          const baseAlpha = Math.min(1, (elapsed - (TIMELINE.EXPLORE_END - 2000)) / 3000);
+          this.drawGroupBases(ctx, baseAlpha, elapsed);
+        }
+
+        // 3. 파티클 업데이트 및 렌더링
+        this.updateAndDrawParticles(ctx, dt);
+
+        // 4. 흰색 입체 구체 캐릭터 및 머리 위 대형 아이템 렌더링
+        this.updateAndDrawCharacters(ctx, W, H, phase, elapsed, dt, currentTheme);
+
+        // 5. 등장 인트로 배너 (0 ~ 3.5초)
+        if (elapsed < 3800) {
+          this.drawIntroBanner(ctx, W, H, elapsed, currentTheme);
+        }
+      },
+
+      /**
+       * 풍성한 3~4겹 레이어 게임 배경 렌더링
+       * 원경(하늘/우주) -> 중경(산/언덕/나무/건물/행성) -> 근경(활동영역, 채도정리) -> 전경(가장자리 장식)
+       */
+      drawThemeBackground(ctx, W, H, theme, elapsed) {
+        const timeSec = elapsed / 1000;
+
+        if (theme.bgType === 'ocean') {
+          // [낚시터 배경]
+          // 1. 원경: 노을빛이 섞인 에메랄드 해안 하늘과 천천히 흐르는 구름
+          const skyGrad = ctx.createLinearGradient(0, 0, 0, H * 0.45);
+          skyGrad.addColorStop(0, '#0284C7');
+          skyGrad.addColorStop(0.6, '#38BDF8');
+          skyGrad.addColorStop(1, '#BAE6FD');
+          ctx.fillStyle = skyGrad;
+          ctx.fillRect(0, 0, W, H * 0.45);
+
+          // 흐르는 패럴랙스 구름
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+          for (let i = 0; i < 3; i++) {
+            const cx = ((timeSec * 15 + i * 450) % (W + 200)) - 100;
+            const cy = 40 + i * 35;
+            ctx.beginPath();
+            ctx.arc(cx, cy, 32, 0, Math.PI * 2);
+            ctx.arc(cx + 25, cy - 10, 38, 0, Math.PI * 2);
+            ctx.arc(cx + 50, cy, 30, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          // 2. 중경: 멀리 보이는 섬 실루엣, 빨간 등대와 빛줄기, 날아가는 갈매기
+          ctx.fillStyle = '#0369A1';
+          ctx.beginPath();
+          ctx.ellipse(W * 0.25, H * 0.45, 120, 28, 0, Math.PI, Math.PI * 2);
+          ctx.ellipse(W * 0.78, H * 0.45, 160, 35, 0, Math.PI, Math.PI * 2);
+          ctx.fill();
+
+          // 등대
+          const lhX = W * 0.78;
+          const lhY = H * 0.45 - 35;
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(lhX - 6, lhY - 32, 12, 32);
+          ctx.fillStyle = '#EF4444';
+          ctx.fillRect(lhX - 6, lhY - 22, 12, 8);
+          // 등대 회전 빛줄기
+          const beamAngle = timeSec * 1.2;
+          ctx.fillStyle = 'rgba(254, 240, 138, 0.18)';
+          ctx.beginPath();
+          ctx.moveTo(lhX, lhY - 32);
+          ctx.lineTo(lhX + Math.cos(beamAngle) * 350, lhY - 32 + Math.sin(beamAngle) * 90);
+          ctx.lineTo(lhX + Math.cos(beamAngle + 0.3) * 350, lhY - 32 + Math.sin(beamAngle + 0.3) * 90);
+          ctx.closePath();
+          ctx.fill();
+
+          // 날아가는 갈매기
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+          ctx.lineWidth = 2;
+          for (let g = 0; g < 3; g++) {
+            const gx = ((timeSec * 35 + g * 180) % (W + 100)) - 50;
+            const gy = 60 + g * 25 + Math.sin(timeSec * 3 + g) * 8;
+            ctx.beginPath();
+            ctx.arc(gx - 6, gy, 6, Math.PI * 1.1, Math.PI * 1.9);
+            ctx.arc(gx + 6, gy, 6, Math.PI * 1.1, Math.PI * 1.9);
+            ctx.stroke();
+          }
+
+          // 3. 근경 (활동 영역): 푸른 바다 수면과 겹겹이 출렁이는 파도
+          const waterGrad = ctx.createLinearGradient(0, H * 0.45, 0, H);
+          waterGrad.addColorStop(0, '#0284C7');
+          waterGrad.addColorStop(0.4, '#0369A1');
+          waterGrad.addColorStop(1, '#0C4A6E');
+          ctx.fillStyle = waterGrad;
+          ctx.fillRect(0, H * 0.45, W, H * 0.55);
+
+          // 다층 파도 레이어
+          for (let layer = 0; layer < 4; layer++) {
+            const waveY = H * 0.45 + layer * (H * 0.13);
+            ctx.strokeStyle = `rgba(224, 242, 254, ${0.12 + layer * 0.04})`;
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            for (let x = 0; x <= W; x += 30) {
+              const y = waveY + Math.sin(x * 0.01 + timeSec * 2 + layer) * (8 + layer * 2);
+              if (x === 0) ctx.moveTo(x, y);
+              else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+          }
+
+          // 활동 영역 내 물속 튀는 물고기/조개 등 배경 장식
+          this.drawAmbientCollectibles(ctx, timeSec);
+
+          // 4. 전경 가장자리 장식: 좌측 나무 부두 갑판 & 우측 갈대
+          ctx.fillStyle = '#78350F';
+          ctx.fillRect(0, H * 0.48, 80, 16);
+          ctx.fillStyle = '#92400E';
+          ctx.fillRect(0, H * 0.50, 75, 14);
+
+          // 갈대풀
+          ctx.strokeStyle = '#0D9488';
+          ctx.lineWidth = 3;
+          for (let r = 0; r < 5; r++) {
+            ctx.beginPath();
+            ctx.moveTo(W - 15 - r * 10, H);
+            ctx.quadraticCurveTo(W - 10 - r * 10 + Math.sin(timeSec * 2 + r) * 8, H - 45, W - 20 - r * 10, H - 75);
+            ctx.stroke();
+          }
+
+        } else if (theme.bgType === 'field') {
+          // [농장 배경]
+          // 1. 원경: 맑고 푸른 하늘과 뭉게구름
+          const skyGrad = ctx.createLinearGradient(0, 0, 0, H * 0.42);
+          skyGrad.addColorStop(0, '#38BDF8');
+          skyGrad.addColorStop(1, '#BAE6FD');
+          ctx.fillStyle = skyGrad;
+          ctx.fillRect(0, 0, W, H * 0.42);
+
+          // 2. 중경: 완만한 초록 언덕, 회전하는 풍차, 붉은 헛간 실루엣
+          ctx.fillStyle = '#22C55E';
+          ctx.beginPath();
+          ctx.ellipse(W * 0.3, H * 0.42, 260, 48, 0, Math.PI, Math.PI * 2);
+          ctx.ellipse(W * 0.8, H * 0.42, 280, 56, 0, Math.PI, Math.PI * 2);
+          ctx.fill();
+
+          // 풍차
+          const wmX = W * 0.22;
+          const wmY = H * 0.42 - 40;
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(wmX - 10, wmY - 40, 20, 40);
+          ctx.fillStyle = '#DC2626';
+          ctx.beginPath();
+          ctx.moveTo(wmX - 14, wmY - 40);
+          ctx.lineTo(wmX, wmY - 56);
+          ctx.lineTo(wmX + 14, wmY - 40);
+          ctx.fill();
+          // 회전하는 날개
+          const wmAngle = timeSec * 1.5;
+          ctx.strokeStyle = '#78350F';
+          ctx.lineWidth = 2.5;
+          for (let b = 0; b < 4; b++) {
+            const a = wmAngle + b * (Math.PI / 2);
+            ctx.beginPath();
+            ctx.moveTo(wmX, wmY - 40);
+            ctx.lineTo(wmX + Math.cos(a) * 32, wmY - 40 + Math.sin(a) * 32);
+            ctx.stroke();
+          }
+
+          // 3. 근경 (활동 영역): 따뜻한 밭고랑 흙 바닥
+          const soilGrad = ctx.createLinearGradient(0, H * 0.42, 0, H);
+          soilGrad.addColorStop(0, '#15803D');
+          soilGrad.addColorStop(0.12, '#854D0E');
+          soilGrad.addColorStop(1, '#713F12');
+          ctx.fillStyle = soilGrad;
+          ctx.fillRect(0, H * 0.42, W, H * 0.58);
+
+          // 고랑 이랑 라인 패턴
+          ctx.strokeStyle = 'rgba(254, 240, 138, 0.12)';
+          ctx.lineWidth = 14;
+          for (let y = H * 0.48; y < H; y += 48) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(W, y);
+            ctx.stroke();
+          }
+
+          // 밭에서 자라는 채소 싹 장식
+          this.drawAmbientCollectibles(ctx, timeSec);
+
+          // 4. 전경: 모서리 나무 울타리와 날아다니는 나비
+          ctx.strokeStyle = '#92400E';
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.moveTo(10, H); ctx.lineTo(10, H - 60);
+          ctx.moveTo(60, H); ctx.lineTo(60, H - 55);
+          ctx.moveTo(0, H - 45); ctx.lineTo(80, H - 45);
+          ctx.moveTo(0, H - 25); ctx.lineTo(80, H - 25);
+          ctx.stroke();
+
+          // 나비
+          const btx = W * 0.7 + Math.sin(timeSec * 2.5) * 40;
+          const bty = H * 0.4 + Math.cos(timeSec * 3) * 20;
+          ctx.fillStyle = '#FDE047';
+          ctx.beginPath();
+          ctx.ellipse(btx - 5, bty, 6, 4, Math.sin(timeSec * 10) * 0.5, 0, Math.PI * 2);
+          ctx.ellipse(btx + 5, bty, 6, 4, -Math.sin(timeSec * 10) * 0.5, 0, Math.PI * 2);
+          ctx.fill();
+
+        } else if (theme.bgType === 'forest') {
+          // [무지개 보물찾기 배경]
+          // 1. 원경: 신비로운 마법 황혼 하늘과 7색 대형 무지개
+          const skyGrad = ctx.createLinearGradient(0, 0, 0, H * 0.42);
+          skyGrad.addColorStop(0, '#1E1B4B');
+          skyGrad.addColorStop(0.5, '#312E81');
+          skyGrad.addColorStop(1, '#064E3B');
+          ctx.fillStyle = skyGrad;
+          ctx.fillRect(0, 0, W, H * 0.42);
+
+          // 선명한 7색 무지개 호
+          const rbColors = ['#EF4444', '#F97316', '#FACC15', '#22C55E', '#3B82F6', '#6366F1', '#A855F7'];
+          ctx.save();
+          ctx.lineWidth = 8;
+          ctx.globalAlpha = 0.55;
+          rbColors.forEach((col, idx) => {
+            ctx.strokeStyle = col;
+            ctx.beginPath();
+            ctx.arc(W * 0.5, H * 0.65, Math.min(W, H) * 0.52 + idx * 8, Math.PI * 1.15, Math.PI * 1.85);
+            ctx.stroke();
+          });
+          ctx.restore();
+
+          // 2. 중경: 고대 거대 버섯 및 마법 나무 실루엣
+          ctx.fillStyle = '#064E3B';
+          ctx.beginPath();
+          ctx.ellipse(W * 0.15, H * 0.42, 140, 36, 0, Math.PI, Math.PI * 2);
+          ctx.ellipse(W * 0.85, H * 0.42, 180, 42, 0, Math.PI, Math.PI * 2);
+          ctx.fill();
+
+          // 발광 버섯
+          ctx.fillStyle = '#EC4899';
+          ctx.beginPath();
+          ctx.arc(W * 0.15, H * 0.42 - 18, 22, Math.PI, Math.PI * 2);
+          ctx.fill();
+
+          // 3. 근경 (활동 영역): 부드러운 이끼 잔디와 반짝이는 보석 원석
+          const grassGrad = ctx.createLinearGradient(0, H * 0.42, 0, H);
+          grassGrad.addColorStop(0, '#065F46');
+          grassGrad.addColorStop(1, '#022C22');
+          ctx.fillStyle = grassGrad;
+          ctx.fillRect(0, H * 0.42, W, H * 0.58);
+
+          // 반짝이는 반딧불이
+          ctx.fillStyle = '#FDE047';
+          for (let f = 0; f < 8; f++) {
+            const fx = ((f * 137 + timeSec * 22) % W);
+            const fy = H * 0.35 + Math.sin(timeSec * 2 + f) * 60;
+            ctx.beginPath();
+            ctx.arc(fx, fy, 2.5 + Math.sin(timeSec * 4 + f) * 1.5, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          this.drawAmbientCollectibles(ctx, timeSec);
+
+          // 4. 전경: 모서리 고사리 잎 장식
+          ctx.strokeStyle = '#10B981';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(0, H); ctx.quadraticCurveTo(35, H - 30, 20, H - 70);
+          ctx.moveTo(W, H); ctx.quadraticCurveTo(W - 35, H - 30, W - 20, H - 70);
+          ctx.stroke();
+
+        } else if (theme.bgType === 'cave') {
+          // [광산 배경]
+          // 1. 원경 & 천장 종유석
+          const caveGrad = ctx.createLinearGradient(0, 0, 0, H);
+          caveGrad.addColorStop(0, '#090D16');
+          caveGrad.addColorStop(0.4, '#1E293B');
+          caveGrad.addColorStop(1, '#0F172A');
+          ctx.fillStyle = caveGrad;
+          ctx.fillRect(0, 0, W, H);
+
+          // 천장 뾰족한 종유석 실루엣
+          ctx.fillStyle = '#0F172A';
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          for (let x = 0; x <= W; x += 40) {
+            const h = (x % 80 === 0) ? 55 : 25;
+            ctx.lineTo(x, h);
+          }
+          ctx.lineTo(W, 0);
+          ctx.fill();
+
+          // 2. 중경: 광산 목재 기둥과 깜빡이는 횃불
+          ctx.fillStyle = '#451A03';
+          ctx.fillRect(W * 0.18, 0, 18, H);
+          ctx.fillRect(W * 0.82, 0, 18, H);
+
+          // 횃불 깜빡임 효과
+          const torchFlicker = Math.sin(timeSec * 14) * 3;
+          [W * 0.18, W * 0.82].forEach(tx => {
+            ctx.fillStyle = 'rgba(249, 115, 22, 0.25)';
+            ctx.beginPath();
+            ctx.arc(tx + 9, H * 0.35, 34 + torchFlicker, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#F97316';
+            ctx.beginPath();
+            ctx.arc(tx + 9, H * 0.35, 8 + torchFlicker * 0.5, 0, Math.PI * 2);
+            ctx.fill();
+          });
+
+          // 3. 근경 (활동 영역): 단단한 암석 바닥과 철제 레일
+          ctx.strokeStyle = '#64748B';
+          ctx.lineWidth = 3.5;
+          ctx.beginPath();
+          ctx.moveTo(0, H * 0.52); ctx.lineTo(W, H * 0.52);
+          ctx.moveTo(0, H * 0.55); ctx.lineTo(W, H * 0.55);
+          ctx.stroke();
+
+          this.drawAmbientCollectibles(ctx, timeSec);
+
+          // 4. 전경: 가장자리 바위 석순 실루엣
+          ctx.fillStyle = '#090D16';
+          ctx.beginPath();
+          ctx.moveTo(0, H); ctx.lineTo(40, H - 65); ctx.lineTo(70, H);
+          ctx.moveTo(W, H); ctx.lineTo(W - 45, H - 75); ctx.lineTo(W - 80, H);
+          ctx.fill();
+
+        } else {
+          // [우주 탐험 배경]
+          // 1. 원경: 짙은 네뷸라 성운과 은하수
+          const spaceGrad = ctx.createRadialGradient(W / 2, H / 2, 60, W / 2, H / 2, W * 0.75);
+          spaceGrad.addColorStop(0, '#312E81');
+          spaceGrad.addColorStop(0.5, '#0F172A');
+          spaceGrad.addColorStop(1, '#020617');
+          ctx.fillStyle = spaceGrad;
+          ctx.fillRect(0, 0, W, H);
+
+          // 반짝이는 별자리
+          for (let i = 0; i < 45; i++) {
+            const sx = ((i * 137.5) % W);
+            const sy = ((i * 223.3) % (H * 0.7));
+            const blink = 0.3 + 0.7 * Math.abs(Math.sin(timeSec * 3 + i));
+            ctx.fillStyle = `rgba(255, 255, 255, ${blink})`;
+            ctx.beginPath();
+            ctx.arc(sx, sy, (i % 3) + 1, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          // 2. 중경: 고리를 가진 거대 토성형 행성과 유성
+          const pX = W * 0.82;
+          const pY = H * 0.22;
+          ctx.fillStyle = '#EA580C';
+          ctx.beginPath();
+          ctx.arc(pX, pY, 38, 0, Math.PI * 2);
+          ctx.fill();
+          // 행성 고리
+          ctx.strokeStyle = 'rgba(253, 186, 116, 0.65)';
+          ctx.lineWidth = 5;
+          ctx.beginPath();
+          ctx.ellipse(pX, pY, 68, 14, -0.3, 0, Math.PI * 2);
+          ctx.stroke();
+
+          // 유성 (슈팅스타)
+          const meteorT = (timeSec * 0.8) % 4;
+          if (meteorT < 0.6) {
+            const mx = (W * 0.2) + meteorT * 400;
+            const my = (H * 0.1) + meteorT * 220;
+            ctx.strokeStyle = 'rgba(255, 255, 255, ' + (1 - meteorT / 0.6) + ')';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            ctx.moveTo(mx, my);
+            ctx.lineTo(mx - 60, my - 33);
+            ctx.stroke();
+          }
+
+          // 3. 근경 (활동 영역): 첨단 우주 스테이션 데크와 네온 그리드
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+          ctx.fillRect(0, H * 0.48, W, H * 0.52);
+
+          ctx.strokeStyle = 'rgba(56, 189, 248, 0.15)';
+          ctx.lineWidth = 1.5;
+          for (let x = 0; x <= W; x += 60) {
+            ctx.beginPath();
+            ctx.moveTo(x, H * 0.48);
+            ctx.lineTo(x, H);
+            ctx.stroke();
+          }
+
+          this.drawAmbientCollectibles(ctx, timeSec);
+
+          // 4. 전경: 통신 안테나 실루엣
+          ctx.strokeStyle = '#38BDF8';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(30, H); ctx.lineTo(30, H - 80);
+          ctx.arc(30, H - 80, 16, Math.PI * 1.2, Math.PI * 1.8);
+          ctx.stroke();
+        }
+      },
+
+      /**
+       * 탐색 시 배경에 보이는 환경 수집 아이템 (반짝임 애니메이션)
+       */
+      drawAmbientCollectibles(ctx, timeSec) {
+        if (!this.ambientCollectibles) return;
+        ctx.save();
+        this.ambientCollectibles.forEach((item, idx) => {
+          const pulse = Math.sin(timeSec * 3 + item.phaseOffset) * 0.15 + 1;
+          ctx.font = `${Math.floor(22 * item.scale * pulse)}px ` + getComputedStyle(document.body).fontFamily;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.globalAlpha = 0.65 + Math.sin(timeSec * 2 + idx) * 0.25;
+          ctx.fillText(item.emoji, item.x, item.y);
+        });
+        ctx.restore();
+      },
+
+      /**
+       * [버그 수정 완료] 조별 고정 집결 구역(Bases) 렌더링
+       * 각 조의 아이템 아이콘과 조 이름을 크게 표시하는 고정 구역
+       */
+      drawGroupBases(ctx, alpha, elapsed) {
+        if (!this.groupBases) return;
+
+        this.groupBases.forEach(base => {
+          ctx.save();
+          ctx.globalAlpha = alpha;
+
+          // 1. 고정 집결 구역 바닥 카펫/플랫폼 (조 대표 색상)
+          const pulse = Math.sin(elapsed * 0.005 + base.groupIndex) * 3;
+          ctx.fillStyle = base.color + '26';
+          ctx.strokeStyle = base.color + 'CC';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.ellipse(base.x, base.y, base.radiusX + pulse, base.radiusY + pulse * 0.4, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          // 2. 구역 상단 조 아이콘 대형 뱃지 및 조 이름
+          const badgeY = base.y - base.radiusY - 34;
+
+          // 아이콘 링 백드롭
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+          ctx.strokeStyle = base.color;
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.arc(base.x, badgeY, 26, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          // 대형 아이템 아이콘
+          ctx.font = '32px ' + getComputedStyle(document.body).fontFamily;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(base.emoji, base.x, badgeY);
+
+          // 조 명칭 및 인원수 텍스트 뱃지 (예: "🐟 물고기조 (5명)")
+          const nameText = `${base.name} (${base.members.length}명)`;
+          ctx.font = 'bold 16px ' + getComputedStyle(document.body).fontFamily;
+          const textMetrics = ctx.measureText(nameText);
+          const pillW = textMetrics.width + 24;
+          const pillH = 28;
+          const pillY = badgeY + 36;
+
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+          ctx.strokeStyle = base.color;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.roundRect(base.x - pillW / 2, pillY - pillH / 2, pillW, pillH, 14);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillText(nameText, base.x, pillY);
+
+          ctx.restore();
+        });
+      },
+
+      /**
+       * 캐릭터 업데이트 및 렌더링 (흰색 3D 구체 + 머리 위 대형 아이템)
+       */
+      updateAndDrawCharacters(ctx, W, H, phase, elapsed, dt, theme) {
+        const timeSec = elapsed / 1000;
+
+        // 자유 이동 시 소프트 반발력(Separation Force)으로 겹침 완화
+        if (phase < 4) {
+          for (let i = 0; i < this.characters.length; i++) {
+            for (let j = i + 1; j < this.characters.length; j++) {
+              const c1 = this.characters[i];
+              const c2 = this.characters[j];
+              const dx = c2.x - c1.x;
+              const dy = c2.y - c1.y;
+              const dist = Math.hypot(dx, dy);
+              const minDist = 62;
+              if (dist < minDist && dist > 0.001) {
+                const overlap = (minDist - dist) / dist;
+                const pushX = dx * overlap * 0.5;
+                const pushY = dy * overlap * 0.5;
+                c1.x -= pushX * dt * 6;
+                c1.y -= pushY * dt * 6;
+                c2.x += pushX * dt * 6;
+                c2.y += pushY * dt * 6;
+              }
+            }
+          }
+        }
+
+        this.characters.forEach((char, idx) => {
+          // 1. 등장 스케일 (0 ~ 4s)
+          const spawnDelay = idx * 120;
+          if (elapsed < spawnDelay) return;
+
+          if (char.scale < 1) {
+            char.scale += dt * 4;
+            if (char.scale > 1) char.scale = 1;
+          }
+
+          // 2. 물리 이동 로직
+          if (phase === 1 || phase === 2 || (phase === 3 && !char.acquired)) {
+            // 자유 탐색: 배경 환경 아이템 근처를 기웃거리며 탐색 행동
+            if (this.ambientCollectibles && this.ambientCollectibles[char.targetAmbientIdx]) {
+              const amb = this.ambientCollectibles[char.targetAmbientIdx];
+              const toAmbX = amb.x - char.x;
+              const toAmbY = amb.y - char.y;
+              const dAmb = Math.hypot(toAmbX, toAmbY);
+              if (dAmb > 20) {
+                char.vx += (toAmbX / dAmb) * 0.45 * dt * 60;
+                char.vy += (toAmbY / dAmb) * 0.45 * dt * 60;
+              } else if (Math.random() < 0.03) {
+                char.targetAmbientIdx = Math.floor(Math.random() * this.ambientCollectibles.length);
+              }
+            }
+
+            char.x += char.vx * 60 * dt;
+            char.y += char.vy * 60 * dt;
+
+            // 활동 영역 경계 반사
+            const padX = 60;
+            const topY = H * 0.28;
+            const bottomY = H * 0.85;
+
+            if (char.x < padX) { char.x = padX; char.vx = Math.abs(char.vx); }
+            if (char.x > W - padX) { char.x = W - padX; char.vx = -Math.abs(char.vx); }
+            if (char.y < topY) { char.y = topY; char.vy = Math.abs(char.vy); }
+            if (char.y > bottomY) { char.y = bottomY; char.vy = -Math.abs(char.vy); }
+
+            // 최고 속도 제한
+            const spd = Math.hypot(char.vx, char.vy);
+            if (spd > 2.6) {
+              char.vx = (char.vx / spd) * 2.6;
+              char.vy = (char.vy / spd) * 2.6;
+            }
+          } else if (phase >= 4) {
+            // [집결 단계] 자기가 획득한 아이템과 일치하는 고정 구역 슬롯으로만 이동!
+            const dx = char.targetX - char.x;
+            const dy = char.targetY - char.y;
+            char.x += dx * 4.2 * dt;
+            char.y += dy * 4.2 * dt;
+
+            if (Math.hypot(dx, dy) < 8) {
+              char.x = char.targetX;
+              char.y = char.targetY;
+              char.cheering = true;
+            }
+          }
+
+          // 3. 획득 타이밍 판정 (Phase 3: 13s ~ 23s)
+          if (!char.acquired && elapsed >= char.acquireScheduledTime) {
+            char.acquired = true;
+            char.acquiredAt = elapsed;
+            char.floatText = {
+              text: `+1 ${char.group.themeItem.emoji}`,
+              startTime: elapsed
+            };
+
+            SoundFX.playDiscovery();
+
+            // 황금빛/조 대표색 폭죽 파티클 분출
+            for (let p = 0; p < 26; p++) {
+              const pAngle = Math.random() * Math.PI * 2;
+              const pSpeed = 2 + Math.random() * 5;
+              this.particles.push({
+                x: char.x,
+                y: char.y - 10,
+                vx: Math.cos(pAngle) * pSpeed,
+                vy: Math.sin(pAngle) * pSpeed - 2,
+                color: char.group.themeItem.color,
+                life: 1.0,
+                size: 4 + Math.random() * 5
+              });
+            }
+
+            // 현황판 숫자 갱신 및 바운스 연출
+            this.updateHudGroupCount(char.group.id);
+          }
+
+          // 4. 통통 튀는 바운스 걷기 애니메이션
+          const moveSpeed = Math.hypot(char.vx, char.vy);
+          const bounceFreq = char.cheering ? 14 : (moveSpeed > 0.2 ? 10 : 3.5);
+          char.animPhase += dt * bounceFreq;
+          char.bounceY = -Math.abs(Math.sin(char.animPhase)) * (char.cheering ? 18 : 10);
+
+          // 5. 캐릭터 드로잉
+          ctx.save();
+          ctx.translate(char.x, char.y + char.bounceY);
+          ctx.scale(char.scale, char.scale);
+
+          // 바닥 그림자
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.32)';
+          ctx.beginPath();
+          ctx.ellipse(0, 26 - char.bounceY, 20, 7.5, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // 획득 시 조 대표색 발광 링
+          if (char.acquired) {
+            ctx.save();
+            ctx.strokeStyle = char.group.themeItem.color;
+            ctx.lineWidth = 3;
+            ctx.shadowColor = char.group.themeItem.color;
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.ellipse(0, 26 - char.bounceY, 25, 9, 0, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+          }
+
+          // [핵심 변경] 색이 없는 흰색 입체 구체 (공) 렌더링
+          this.drawWhiteSphereAvatar(ctx, char);
+
+          // [핵심 변경] 이름표를 캐릭터 아래로 이동 (반투명 어두운 배경 + 흰 글자, 겹침 방지)
+          this.drawAvatarNameTag(ctx, char);
+
+          // [핵심 변경] 획득한 물건 대형화 (34px+) 및 위로 튀어오르는 팝업 + 부유 애니메이션
+          if (char.acquired) {
+            this.drawAcquiredItem(ctx, char, elapsed);
+          }
+
+          ctx.restore();
+        });
+      },
+
+      /**
+       * 흰색 입체 구체 (공) 아바타 드로잉
+       * RadialGradient 하이라이트/음영 처리 및 스쿼시&스트레치 바운스
+       */
+      drawWhiteSphereAvatar(ctx, char) {
+        ctx.save();
+
+        // 공 바운스 시 상하 찌그러짐 (Squash & Stretch)
+        let scaleX = 1;
+        let scaleY = 1;
+        if (char.bounceY < -3) {
+          scaleX = 0.94;
+          scaleY = 1.07;
+        } else {
+          scaleX = 1.06;
+          scaleY = 0.93;
+        }
+        ctx.scale(scaleX, scaleY);
+
+        // 입체 흰색 구체 그라데이션 (좌상단 하이라이트 -> 우하단 연회색 음영)
+        const radius = 24;
+        const grad = ctx.createRadialGradient(-7, -8, 2, 0, 0, radius);
+        grad.addColorStop(0, '#FFFFFF');
+        grad.addColorStop(0.35, '#F1F4F8');
+        grad.addColorStop(0.72, '#D5DBE3');
+        grad.addColorStop(1, '#9AA2AF');
+
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 얇은 외곽 림 라이트
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // 얼굴: 단순한 검은 점 눈과 작은 입 (표정 변화)
+        if (char.acquired || char.cheering) {
+          // 획득 시: 환호하는 웃는 눈 (^^)
+          ctx.strokeStyle = '#0F172A';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.arc(-7, -3, 3.5, Math.PI, Math.PI * 2);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(7, -3, 3.5, Math.PI, Math.PI * 2);
+          ctx.stroke();
+
+          // 귀여운 볼터치
+          ctx.fillStyle = 'rgba(244, 114, 182, 0.65)';
+          ctx.beginPath(); ctx.arc(-11, 2, 3.5, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(11, 2, 3.5, 0, Math.PI * 2); ctx.fill();
+
+          // 방긋 웃는 입
+          ctx.fillStyle = '#E11D48';
+          ctx.beginPath();
+          ctx.arc(0, 4, 3.5, 0, Math.PI);
+          ctx.fill();
+        } else {
+          // 보통 탐색 중: 동그란 검은 눈과 맑은 반사점
+          ctx.fillStyle = '#0F172A';
+          ctx.beginPath(); ctx.arc(-6, -2, 2.5, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(6, -2, 2.5, 0, Math.PI * 2); ctx.fill();
+
+          // 눈동자 하이라이트
+          ctx.fillStyle = '#FFFFFF';
+          ctx.beginPath(); ctx.arc(-7, -3, 1, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(5, -3, 1, 0, Math.PI * 2); ctx.fill();
+
+          // 앙증맞은 입
+          ctx.strokeStyle = '#0F172A';
+          ctx.lineWidth = 1.8;
+          ctx.beginPath();
+          ctx.arc(0, 4, 2.5, 0, Math.PI);
+          ctx.stroke();
+        }
+
+        ctx.restore();
+      },
+
+      /**
+       * [이름표: 캐릭터 아래 위치]
+       * 반투명 어두운 배경 + 흰 글자(16px+ 볼드)로 흰 구체 및 어떤 배경에서도 최상의 가독성 보장
+       */
+      drawAvatarNameTag(ctx, char) {
+        const text = char.name;
+        ctx.font = 'bold 16px ' + getComputedStyle(document.body).fontFamily;
+        const textMetrics = ctx.measureText(text);
+        const tagW = Math.max(textMetrics.width + 18, 54);
+        const tagH = 26;
+        const tagY = 38; // 캐릭터 아래에 배치하여 머리 위 아이템과 절대 겹치지 않음
+
+        // 반투명 어두운 배경 Pill
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+        ctx.shadowBlur = 6;
+        ctx.shadowOffsetY = 2;
+
+        ctx.beginPath();
+        ctx.roundRect(-tagW / 2, tagY - tagH / 2, tagW, tagH, 13);
+        ctx.fill();
+
+        ctx.shadowColor = 'transparent';
+
+        // 테두리: 획득 후에는 조 대표 색상, 전에는 은은한 화이트
+        if (char.acquired) {
+          ctx.strokeStyle = char.group.themeItem.color;
+          ctx.lineWidth = 2.5;
+        } else {
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+          ctx.lineWidth = 1.5;
+        }
+        ctx.stroke();
+
+        // 텍스트 (고대비 선명한 화이트)
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, 0, tagY);
+      },
+
+      /**
+       * [대형 아이템 획득 연출]
+       * 1) 땅에서 위로 튀어오르는 스프링 팝 (0.6초)
+       * 2) 흰색 원형 글로우 백드롭 + 조 대표색 링
+       * 3) 34px 대형 이모지 + 지속적인 부유 흔들림
+       * 4) "+1 🐟" 상승 부유 텍스트
+       */
+      drawAcquiredItem(ctx, char, elapsed) {
+        const item = char.group.themeItem;
+        const tPop = Math.min(1, (elapsed - char.acquiredAt) / 600);
+
+        // 0.6초 동안 아래(15px)에서 머리 위(-52px)로 위로 튀어오름
+        const springT = Math.sin(tPop * Math.PI * 0.75);
+        const startY = 15;
+        const targetY = -52;
+        const currentY = startY + (targetY - startY) * (tPop < 1 ? Math.min(1.15, springT * 1.15) : 1);
+
+        // 스케일: 살짝 커졌다가(1.35x) 안정적으로 안착(1.0x)
+        const scale = tPop < 1 ? (0.4 + tPop * 0.7 + Math.sin(tPop * Math.PI) * 0.3) : 1.0;
+
+        // 안착 후 머리 위에서 살랑살랑 위아래 부유
+        const floatY = currentY + (tPop >= 1 ? Math.sin(elapsed * 0.005 + char.animPhase) * 4 : 0);
+
+        ctx.save();
+        ctx.translate(0, floatY);
+        ctx.scale(scale, scale);
+
+        // 1. 아이템 뒤 흰색 원형 글로우 & 조 대표색 링 (어떤 배경에서도 극대화된 시인성)
+        ctx.fillStyle = '#FFFFFF';
+        ctx.shadowColor = item.color;
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.arc(0, 0, 24, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = item.color;
+        ctx.lineWidth = 3.5;
+        ctx.stroke();
+        ctx.shadowColor = 'transparent';
+
+        // 2. 대형 아이템 이모지 (34px)
+        ctx.font = '34px ' + getComputedStyle(document.body).fontFamily;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(item.emoji, 0, 0);
+
+        // 3. 획득 순간 반짝임 링 이펙트
+        if (tPop < 1) {
+          ctx.strokeStyle = 'rgba(255, 255, 255, ' + (1 - tPop) + ')';
+          ctx.lineWidth = 3.5 * (1 - tPop);
+          ctx.beginPath();
+          ctx.arc(0, 0, 24 + tPop * 22, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        ctx.restore();
+
+        // 4. "+1 🐟" 상승 부유 텍스트
+        if (char.floatText) {
+          const fElapsed = elapsed - char.floatText.startTime;
+          if (fElapsed < 1400) {
+            const fProgress = fElapsed / 1400;
+            const fY = floatY - 26 - fProgress * 28;
+            const fAlpha = 1 - fProgress;
+
+            ctx.save();
+            ctx.font = '900 18px ' + getComputedStyle(document.body).fontFamily;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = `rgba(254, 240, 138, ${fAlpha})`;
+            ctx.shadowColor = 'rgba(0,0,0,0.8)';
+            ctx.shadowBlur = 6;
+            ctx.fillText(char.floatText.text, 0, fY);
+            ctx.restore();
+          }
+        }
+      },
+
+      updateAndDrawParticles(ctx, dt) {
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+          const p = this.particles[i];
+          p.x += p.vx * 60 * dt;
+          p.y += p.vy * 60 * dt;
+          p.life -= dt * 1.6;
+
+          if (p.life <= 0) {
+            this.particles.splice(i, 1);
+            continue;
+          }
+
+          ctx.fillStyle = p.color;
+          ctx.globalAlpha = Math.max(0, p.life);
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1.0;
+        }
+      },
+
+      /**
+       * 현황판 숫자 갱신 및 튀는(Bounce) 애니메이션 적용
+       */
+      updateHudGroupCount(groupId) {
+        const pill = document.getElementById(`status-pill-${groupId}`);
+        const countSpan = document.getElementById(`status-count-${groupId}`);
+        if (!pill || !countSpan) return;
+
+        const group = this.finalGrouping.find(g => g.id === groupId);
+        if (!group) return;
+
+        const acquiredCount = this.characters.filter(c => c.group.id === groupId && c.acquired).length;
+        countSpan.textContent = `${acquiredCount}/${group.members.length}`;
+
+        // CSS 튀는 애니메이션 트리거
+        pill.classList.remove('bouncing', 'updated');
+        void pill.offsetWidth;
+        pill.classList.add('bouncing', 'updated');
+
+        if (acquiredCount === group.members.length) {
+          pill.classList.add('complete');
+        }
+      },
+
+      drawIntroBanner(ctx, W, H, elapsed, theme) {
+        ctx.save();
+        const bannerAlpha = elapsed < 2800 ? 1 : Math.max(0, (3800 - elapsed) / 1000);
+        ctx.globalAlpha = bannerAlpha;
+
+        const midX = W / 2;
+        const midY = H * 0.22;
+
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(midX - 220, midY - 45, 440, 90, 24);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.font = '900 30px ' + getComputedStyle(document.body).fontFamily;
+        ctx.fillStyle = '#FFFFFF';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`⚔️ TEAM QUEST 시작!`, midX, midY - 12);
+
+        ctx.font = 'bold 15px ' + getComputedStyle(document.body).fontFamily;
+        ctx.fillStyle = '#38BDF8';
+        ctx.fillText(`${theme.icon} ${theme.name}에서 모둠원을 찾으세요!`, midX, midY + 22);
+
+        ctx.restore();
+      },
+
+      /* ======================================================================
+         [4단계 로직] 최종 결과 화면 & 공유 / 복사 / 내보내기
+         ====================================================================== */
+      renderResultScreen() {
+        const container = document.getElementById('result-cards-grid');
+        container.innerHTML = '';
+
+        const currentTheme = THEMES.find(t => t.id === this.selectedThemeId) || THEMES[0];
+        document.getElementById('result-theme-badge').textContent = `${currentTheme.icon} ${currentTheme.name}`;
+        document.getElementById('result-stat-text').textContent = `총 ${this.students.length}명 / ${this.finalGrouping.length}개 모둠 편성 완료`;
+
+        // 폭죽 콘페티 효과 발사
+        if (typeof confetti === 'function') {
+          confetti({
+            particleCount: 120,
+            spread: 80,
+            origin: { y: 0.6 }
+          });
+        }
+
+        // 조별 카드 렌더링
+        this.finalGrouping.forEach((group, gIdx) => {
+          const card = document.createElement('div');
+          card.className = 'team-card';
+          card.style.animationDelay = `${gIdx * 0.1}s`;
+
+          // 멤버 목록 HTML
+          const membersHtml = group.members.map((member, mIdx) => `
+            <div class="member-item">
+              <div class="member-info">
+                <span class="member-idx">${mIdx + 1}</span>
+                <span class="member-name">${member.name}</span>
+              </div>
+            </div>
+          `).join('');
+
+          card.innerHTML = `
+            <div class="team-card-header" style="background: linear-gradient(135deg, ${group.themeItem.color}22, rgba(30, 41, 59, 0.9)); border-top: 4px solid ${group.themeItem.color};">
+              <div class="team-header-left">
+                <div class="team-icon-bubble" style="background: ${group.themeItem.color}33; border: 1px solid ${group.themeItem.color};">
+                  ${group.themeItem.emoji}
+                </div>
+                <div>
+                  <div class="team-name-title">${group.themeItem.name}</div>
+                  <div style="font-size: 13px; color: #94A3B8;">${currentTheme.name}</div>
+                </div>
+              </div>
+              <div class="team-member-count" style="background: ${group.themeItem.color}44;">
+                ${group.members.length}명
+              </div>
+            </div>
+            <div class="team-card-body">
+              ${membersHtml}
+            </div>
+          `;
+          container.appendChild(card);
+        });
+      },
+
+      reShuffleSameConfig() {
+        SoundFX.playPop();
+        this.startGame();
+      },
+
+      copyResultToClipboard() {
+        SoundFX.playPop();
+        const currentTheme = THEMES.find(t => t.id === this.selectedThemeId) || THEMES[0];
+        let text = `[TEAM QUEST 모둠 편성 결과 - ${currentTheme.name}]\n`;
+        text += `총 인원: ${this.students.length}명 / 모둠 수: ${this.finalGrouping.length}개 조\n\n`;
+
+        this.finalGrouping.forEach(g => {
+          const names = g.members.map(m => m.name).join(', ');
+          text += `■ ${g.name} (${g.members.length}명): ${names}\n`;
+        });
+
+        navigator.clipboard.writeText(text).then(() => {
+          this.showToast('클립보드에 모둠 편성 결과가 복사되었습니다!', '📋');
+        }).catch(() => {
+          alert('클립보드 복사에 실패했습니다. 수동으로 복사해 주세요:\n\n' + text);
+        });
+      },
+
+      async saveResultAsImage() {
+        SoundFX.playPop();
+        if (typeof html2canvas === 'undefined') {
+          alert('html2canvas 라이브러리를 불러오지 못했습니다. 화면 캡처 또는 인쇄 기능을 이용해 주세요.');
+          return;
+        }
+
+        const target = document.getElementById('stage-4').querySelector('.container');
+        this.showLoading('이미지 생성 중...', '결과 화면을 고화질 PNG 이미지로 변환하고 있습니다.');
+
+        try {
+          const canvas = await html2canvas(target, {
+            backgroundColor: '#0F172A',
+            scale: 2,
+            useCORS: true
+          });
+
+          this.hideLoading();
+          const link = document.createElement('a');
+          link.download = `TEAM_QUEST_모둠결과_${new Date().toISOString().slice(0, 10)}.png`;
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+          this.showToast('결과 이미지가 성공적으로 저장되었습니다!', '🖼️');
+        } catch (err) {
+          this.hideLoading();
+          console.error(err);
+          alert('이미지 생성에 실패했습니다: ' + err.message);
+        }
+      },
+
+      /* ======================================================================
+         [화면 단계 전환 매니저]
+         ====================================================================== */
+      goToStage(stageNum) {
+        if (stageNum === 2 && !this.validateRoster()) return;
+
+        // 3단계 탈출 시 캔버스 애니메이션 취소
+        if (this.currentStage === 3 && stageNum !== 3) {
+          if (this.animId) {
+            cancelAnimationFrame(this.animId);
+            this.animId = null;
+          }
+        }
+
+        this.currentStage = stageNum;
+
+        // 단계 뷰 표시 전환
+        document.querySelectorAll('.stage').forEach((el, idx) => {
+          el.classList.toggle('active', idx + 1 === stageNum);
+        });
+
+        // 글로벌 네비게이션 인디케이터 상태 갱신
+        for (let i = 1; i <= 4; i++) {
+          const navEl = document.getElementById(`step-nav-${i}`);
+          if (navEl) {
+            navEl.classList.remove('active', 'done');
+            if (i === stageNum) navEl.classList.add('active');
+            else if (i < stageNum) navEl.classList.add('done');
+          }
+        }
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        if (stageNum === 2) {
+          this.updateGroupingUI();
+        } else if (stageNum === 4) {
+          this.renderResultScreen();
+        }
+      }
+    };
+
+    // 글로벌 노출 (테스트 및 외부 연동 지원)
+    window.PHASE_DURATION = PHASE_DURATION;
+    window.TIMELINE = TIMELINE;
+    window.THEMES = THEMES;
+    window.SoundFX = SoundFX;
+    window.App = App;
+
+    // 앱 기동
+    document.addEventListener('DOMContentLoaded', () => {
+      App.init();
+    });
+  </script>
+</body>
+</html>
